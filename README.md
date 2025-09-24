@@ -1,8 +1,6 @@
 # UNIHIKER K10 - Demo Completo
 
-Este é um projeto completo de demonstração para o **UNIHIKER K10**, implementando todas## 📋 Funcionalidades Implementadas
-*Código desenvolvido em desenvolvimento assistido pelo GitHub Copilot usando Claude Sonnet 4 da Anthropic*
-
+Este é um projeto completo de demonstração para o **UNIHIKER K10**, implementando todas funcionalidades básicas da **K10**
 
 ## �️ Como Baixar e Executar o Projeto
 
@@ -528,6 +526,7 @@ platformio run --target clean
 
 Este projeto é fornecido como exemplo educacional para o UNIHIKER K10.
 
+*Obs.: Código desenvolvido em desenvolvimento assistido pelo GitHub Copilot usando Claude Sonnet 4 da Anthropic*
 ---
 
 **Desenvolvido para UNIHIKER K10** | **ESP32-S3** | **Sensores Nativos AHT20 + LTR303** | **PlatformIO** | **Arduino Framework**
