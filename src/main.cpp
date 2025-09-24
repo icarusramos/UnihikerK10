@@ -2,16 +2,16 @@
 #include "asr.h"
 #include "AIRecognition.h"
 #include "Adafruit_LTR329_LTR303.h"
-#include "DFRobot_AHT20.h"
 #include <WiFi.h>
 #include <SD.h>
 #include <FS.h>
 
-UNIHIKER_K10 k10;
-ASR asr;
-AIRecognition ai;
+UNIHIKER_K10    k10;
+ASR             asr;
+AIRecognition   ai;
 Adafruit_LTR303 ltr;
-DFRobot_AHT20 aht20;
+AHT20           aht20;
+Music          music;
 
 // Configurações da tela
 uint8_t screen_dir = 2;
@@ -82,7 +82,6 @@ void readAllSensors();
 void demonstrateLEDs();
 void demonstrateSensors();
 void demonstrateCamera();
-void demonstrateAudio();
 void demonstrateAudio();
 void demonstrateWiFi();
 void demonstrateBluetooth();
@@ -185,6 +184,7 @@ void loop() {
             if (modeChanged) {
                 showMainMenu();
                 modeChanged = false;
+               
             }
             break;
             
@@ -343,20 +343,6 @@ void initializeSystems() {
         Serial.println("Erro ao inicializar sensor de luz");
     }
     
-    // Sensor de temperatura e umidade AHT20
-    try {
-        if (aht20.begin()) {
-            tempHumiSensorAvailable = true;
-            Serial.println("Sensor AHT20 inicializado");
-        } else {
-            tempHumiSensorAvailable = false;
-            Serial.println("Sensor AHT20 não disponível");
-        }
-    } catch (...) {
-        tempHumiSensorAvailable = false;
-        Serial.println("Erro ao inicializar sensor AHT20");
-    }
-    
     displayOnScreen("Sensores: OK", 7, 0x00FF00);
     delay(500);
     
@@ -398,18 +384,28 @@ void showWelcomeScreen() {
 }
 
 void showMainMenu() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    static bool menuDrawn = false;
+   
     
-    displayOnScreen(" MENU PRINCIPAL ", 1, 0x00FFFF);
-    
-    for (int i = 0; i < 10; i++) {
-        displayOnScreen(menuItems[i], i + 2, 0xFFFFFF);
+    if (modeChanged || !menuDrawn) {
+     
+        k10.setScreenBackground(0x000000);
+        
+        displayOnScreen(" MENU PRINCIPAL ", 1, 0x00FFFF);
+        
+        for (int i = 0; i < 10; i++) {
+            displayOnScreen(menuItems[i], i + 2, 0xFFFFFF);
+        }
+        
+        displayOnScreen("Use botoes A+B", 13, 0xFFFF00);
+        
+        menuDrawn = true;
     }
     
-    displayOnScreen("Use botoes A/B", 13, 0xFFFF00);
-    displayOnScreen("A+B = Proximo modo", 14, 0x888888);
+    // Reset flag quando sair do menu
+    if (currentMode != 0) {
+        menuDrawn = false;
+    }
 }
 
 void handleButtons() {
@@ -422,7 +418,7 @@ void handleButtons() {
         currentMode = (currentMode + 1) % 11;
         modeChanged = true;
         lastButtonPress = currentTime;
-        displayOnScreen("Modo: " + String(currentMode), 0, 0xFFFF00);
+        
         delay(500);
     }
     else if (k10.buttonA->isPressed()) {
@@ -506,7 +502,6 @@ void readAllSensors() {
     }
     
     // Ler sensor de luz NATIVO LTR303 (se disponível)
-    if (lightSensorAvailable) {
         try {
             if (ltr.newDataAvailable()) {
                 uint16_t visible_plus_ir, infrared;
@@ -534,42 +529,30 @@ void readAllSensors() {
         } catch (...) {
             Serial.println("Erro ao ler sensor de luz");
         }
-    } else {
-        // Fallback: simular sensor de luz baseado em micData
-        lightLevel = constrain(map(micData % 10000, 0, 9999, 100, 4000), 0, 4095);
-        lightPercent = map(lightLevel, 0, 4095, 0, 100);
-        lightRaw = lightLevel;
-    }
     
-    // Ler sensores NATIVOS de temperatura e umidade AHT20 (se disponível)
-    if (tempHumiSensorAvailable) {
+    // Ler sensores NATIVOS de temperatura e umidade AHT20 
         try {
-            temperature = aht20.getTemperature_C();
-            humidity = aht20.getHumidity_RH();
+            temperature = aht20.getData(AHT20::eAHT20TempC);
+            humidity = aht20.getData(AHT20::eAHT20HumiRH);
+            Serial.printf("T:%.1f°C H:%.1f%% L:%d%% (%d raw) AccelX:%.2f AccelY:%.2f AccelZ:%.2f\n", 
+                  temperature, humidity, lightPercent, lightRaw, accelX, accelY, accelZ);
+           
         } catch (...) {
             Serial.println("Erro ao ler sensor AHT20");
             tempHumiSensorAvailable = false; // Desabilitar se erro
         }
-    }
     
-    if (!tempHumiSensorAvailable) {
-        // Fallback: simular sensores baseados em dados reais do acelerômetro
-        float baseTemp = 23.0 + (abs(accelX) * 5.0); // Temperatura varia com movimento
-        temperature = baseTemp + (sin(millis() / 30000.0) * 3.0); // Variação lenta
-        
-        float baseHumidity = 55.0 + (abs(accelY) * 15.0); // Umidade varia com movimento Y
-        humidity = constrain(baseHumidity + (cos(millis() / 25000.0) * 10.0), 20, 80);
-    }
-    
-    // Output para serial a cada leitura
-    Serial.printf("T:%.1f°C H:%.1f%% L:%d%% (%d raw) AccelX:%.2f AccelY:%.2f AccelZ:%.2f\n", 
-                  temperature, humidity, lightPercent, lightRaw, accelX, accelY, accelZ);
 }
 
 void demonstrateLEDs() {
     static bool contentDrawn = false;
     static unsigned long lastUpdate = 0;
     static int state = 0;
+    static String lastColorName = "";
+    
+    // Array com nomes das cores
+    String colorNames[] = {"Vermelho", "Verde", "Azul", "Amarelo", "Magenta", "Ciano", "Branco", "Desligado"};
+    uint32_t colors[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 0x000000};
     
     // Limpa tela apenas uma vez
     if (initScreenOnce()) {
@@ -580,57 +563,61 @@ void demonstrateLEDs() {
     if (!contentDrawn) {
         displayOnScreen(" DEMO LEDs ", 1, 0x00FFFF);
         displayOnScreen("Cores automaticas", 3, 0xFFFFFF);
+        displayOnScreen("Cor atual:", 5, 0xFFFFFF);
         displayOnScreen("A: Mudar modo", 11, 0x888888);
         displayOnScreen("B: Flash todos", 12, 0x888888);
         displayOnScreen("A+B: Proximo demo", 13, 0x888888);
         contentDrawn = true;
     }
     
-    // Atualizar apenas o que muda
-    if (millis() - lastUpdate > 500) {
+    // Atualizar LEDs e texto sincronizadamente
+    if (millis() - lastUpdate > 1000) {
         lastUpdate = millis();
         
-        switch (state % 8) {
-            case 0: setAllLeds(0xFF0000); break; // Vermelho
-            case 1: setAllLeds(0x00FF00); break; // Verde
-            case 2: setAllLeds(0x0000FF); break; // Azul
-            case 3: setAllLeds(0xFFFF00); break; // Amarelo
-            case 4: setAllLeds(0xFF00FF); break; // Magenta
-            case 5: setAllLeds(0x00FFFF); break; // Ciano
-            case 6: setAllLeds(0xFFFFFF); break; // Branco
-            case 7: setAllLedsOff(); break; // Desligado
-        }
-        state++;
+        int colorIndex = state % 8;
         
-        // Atualizar apenas a linha do estado
-        displayOnScreen("Estado: " + String(state % 8), 5, 0xFFFF00);
+        // Definir cor do LED
+        if (colorIndex == 7) {
+            setAllLedsOff();
+        } else {
+            setAllLeds(colors[colorIndex]);
+        }
+        
+        // Atualizar texto apenas se mudou
+        String currentColorName = colorNames[colorIndex];
+        if (lastColorName != currentColorName) {
+            // Limpar linha anterior
+            displayOnScreen("                    ", 6, 0x000000);
+            // Mostrar nova cor
+            displayOnScreen(currentColorName, 6, colors[colorIndex] == 0x000000 ? 0x888888 : colors[colorIndex]);
+            lastColorName = currentColorName;
+        }
+        
+        state++;
     }
 }
 
 void demonstrateSensors() {
-    static bool contentDrawn = false;
+   
     static unsigned long lastUpdate = 0;
     
-    // Limpa tela apenas uma vez
-    if (initScreenOnce()) {
-        contentDrawn = false;
-    }
-    
+   
     // Desenhar labels estáticos apenas uma vez
-    if (!contentDrawn) {
+ 
         displayOnScreen(" SENSORES ", 1, 0x00FFFF);
         displayOnScreen("Temperatura:", 3, 0xFFFFFF);
         displayOnScreen("Umidade:", 5, 0xFFFFFF);
         displayOnScreen("Luminosidade:", 7, 0xFFFFFF);
         displayOnScreen("Acelerometro:", 9, 0xFFFFFF);
-        contentDrawn = true;
-    }
-    
-    // Atualizar valores a cada 500ms
-    if (millis() - lastUpdate > 500) {
-        lastUpdate = millis();
-        readAllSensors();
+        displayOnScreen("Atualizando a cada 10s", 14, 0x888888);
         
+    // Atualizar dados dos sensores a cada segundo   
+   
+     if (millis() - lastUpdate > 1000) {
+        lastUpdate = millis();
+        
+        readAllSensors();
+       
         displayOnScreen(String(temperature, 1) + "°C", 4, 0x00FF00);
         displayOnScreen(String(humidity, 1) + "%", 6, 0x00FF00);
         displayOnScreen(String(lightPercent) + "%", 8, 0x00FF00);
@@ -638,62 +625,28 @@ void demonstrateSensors() {
         displayOnScreen("Y:" + String(accelY, 1), 11, 0x888888);
         displayOnScreen("Z:" + String(accelZ, 1), 12, 0x888888);
         displayOnScreen("Mic:" + String(micData), 13, 0x888888);
-    }
-}
-
-void demonstrateScreen() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    
-    static unsigned long lastUpdate = 0;
-    static int colorIndex = 0;
-    
-    if (millis() - lastUpdate > 1000) {
-        lastUpdate = millis();
-        colorIndex++;
-    }
-    
-    uint32_t bgColors[] = {0x000000, 0x001122, 0x112200, 0x220011, 0x002211, 0x110022, 0x221100};
-    k10.setScreenBackground(bgColors[colorIndex % 7]);
-    
-    displayOnScreen(" DEMO TELA ", 1, 0x00FFFF);
-    displayOnScreen("Cores de fundo", 3, 0xFFFFFF);
-    displayOnScreen("automaticas", 4, 0xFFFFFF);
-    
-    // Mostrar diferentes cores de texto
-    displayOnScreen("Texto VERMELHO", 6, 0xFF0000);
-    displayOnScreen("Texto VERDE", 7, 0x00FF00);
-    displayOnScreen("Texto AZUL", 8, 0x0000FF);
-    displayOnScreen("Texto AMARELO", 9, 0xFFFF00);
-    displayOnScreen("Texto MAGENTA", 10, 0xFF00FF);
-    displayOnScreen("Texto CIANO", 11, 0x00FFFF);
-    displayOnScreen("Texto BRANCO", 12, 0xFFFFFF);
-    
-    displayOnScreen("Cor: " + String(colorIndex % 7), 14, 0x888888);
+     }
 }
 
 void demonstrateButtons() {
-    static bool contentDrawn = false;
     static String lastAction = "Nenhuma";
     static unsigned long lastTime = 0;
     static String displayedAction = "";
-    
-    // Limpa tela apenas uma vez
-    if (initScreenOnce()) {
-        contentDrawn = false;
-        displayedAction = "";
+    static bool screenCleared = false;
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
     }
-    
-    // Desenhar conteúdo estático apenas uma vez
-    if (!contentDrawn) {
-        displayOnScreen(" DEMO BOTOES ", 1, 0x00FFFF);
-        displayOnScreen("Pressione botoes:", 3, 0xFFFFFF);
-        displayOnScreen("Ultima acao:", 5, 0xFFFF00);
-        displayOnScreen("A = LED Vermelho", 9, 0x888888);
-        displayOnScreen("B = LED Verde", 10, 0x888888);
-        displayOnScreen("A+B = Proximo modo", 12, 0x888888);
-        contentDrawn = true;
+    if (currentMode != 8) {
+        screenCleared = false;
     }
+    displayOnScreen(" DEMO BOTOES ", 1, 0x00FFFF);
+    displayOnScreen("Pressione botoes:", 3, 0xFFFFFF);
+    displayOnScreen("Ultima acao:", 5, 0xFFFF00);
+    displayOnScreen("A = LED Vermelho", 9, 0x888888);
+    displayOnScreen("B = LED Verde", 10, 0x888888);
+    displayOnScreen("A+B = Proximo modo", 12, 0x888888);
     
     if (k10.buttonA->isPressed() && millis() - lastTime > 300) {
         lastAction = "Botao A";
@@ -725,189 +678,40 @@ void demonstrateButtons() {
     }
 }
 
-void demonstrateAccelerometer() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
-    
-    readAllSensors();
-    
-    // Controlar LEDs baseado na inclinação
-    int redLevel = map(abs(accelX), 0, 10, 0, 255);
-    int greenLevel = map(abs(accelY), 0, 10, 0, 255);
-    int blueLevel = map(abs(accelZ), 0, 10, 0, 255);
-    
-    redLevel = constrain(redLevel, 0, 255);
-    greenLevel = constrain(greenLevel, 0, 255);
-    blueLevel = constrain(blueLevel, 0, 255);
-    
-    uint32_t color = (redLevel << 16) | (greenLevel << 8) | blueLevel;
-    setAllLeds(color);
-    
-    displayOnScreen(" ACELEROMETRO ", 1, 0x00FFFF);
-    displayOnScreen("Incline o dispositivo", 2, 0xFFFFFF);
-    displayOnScreen("LEDs mudam com", 3, 0xFFFFFF);
-    displayOnScreen("a inclinacao", 4, 0xFFFFFF);
-    
-    displayOnScreen("X: " + String(accelX, 2), 6, 0xFF0000);
-    displayOnScreen("Y: " + String(accelY, 2), 7, 0x00FF00);
-    displayOnScreen("Z: " + String(accelZ, 2), 8, 0x0000FF);
-    
-    displayOnScreen("LED R:" + String(redLevel), 10, 0xFF0000);
-    displayOnScreen("LED G:" + String(greenLevel), 11, 0x00FF00);
-    displayOnScreen("LED B:" + String(blueLevel), 12, 0x0000FF);
-    
-    // Barra de intensidade total
-    float totalAccel = sqrt(accelX*accelX + accelY*accelY + accelZ*accelZ);
-    displayOnScreen("Total:" + String(totalAccel, 1), 14, 0xFFFFFF);
-}
-
-void demonstrateLight() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
-    
-    readAllSensors();
-    
-    // Ajustar brilho dos LEDs baseado na luz ambiente
-    int brightness = map(lightPercent, 0, 100, 20, 255);
-    brightness = constrain(brightness, 20, 255);
-    
-    uint32_t color = (brightness << 16) | (brightness << 8) | brightness; // Branco
-    setAllLeds(color);
-    
-    displayOnScreen(" SENSOR DE LUZ ", 1, 0x00FFFF);
-    displayOnScreen("LEDs ajustam", 2, 0xFFFFFF);
-    displayOnScreen("com luz ambiente", 3, 0xFFFFFF);
-    
-    displayOnScreen("Luminosidade:", 5, 0xFFFF00);
-    displayOnScreen(String(lightPercent) + "%", 6, 0x00FF00);
-    displayOnScreen("Raw: " + String(lightRaw), 7, 0x888888);
-    displayOnScreen("Brilho LED: " + String(brightness), 9, 0xFFFFFF);
-    
-    // Indicador visual da luminosidade
-    String lightBar = "Luz: [";
-    int bars = lightPercent / 10;
-    for (int i = 0; i < 10; i++) {
-        lightBar += (i < bars) ? "=" : " ";
-    }
-    lightBar += "]";
-    displayOnScreen(lightBar, 11, 0x00FFFF);
-    
-    displayOnScreen("Min:" + String(minLight) + " Max:" + String(maxLight), 13, 0x444444);
-}
-
-void demonstrateSound() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
-    
-    readAllSensors();
-    
-    // LEDs reagem ao som
-    int soundLevel = constrain(map(micData, 0, 10000, 0, 255), 0, 255);
-    uint32_t color = (soundLevel << 8); // Verde baseado no som
-    setAllLeds(color);
-    
-    displayOnScreen(" DEMO SOM ", 1, 0x00FFFF);
-    displayOnScreen("Faca barulho!", 2, 0xFFFFFF);
-    displayOnScreen("LEDs reagem ao som", 3, 0xFFFFFF);
-    
-    displayOnScreen("Nivel som:", 5, 0xFFFF00);
-    displayOnScreen(String(micData), 6, 0x00FF00);
-    displayOnScreen("LED Verde:" + String(soundLevel), 8, 0x00FF00);
-    
-    // Barra visual do som
-    String soundBar = "Som: [";
-    int bars = map(soundLevel, 0, 255, 0, 10);
-    for (int i = 0; i < 10; i++) {
-        soundBar += (i < bars) ? "=" : " ";
-    }
-    soundBar += "]";
-    displayOnScreen(soundBar, 10, 0x00FF00);
-    
-    // Histórico simples
-    static int lastSound = 0;
-    static int maxSound = 0;
-    if (micData > maxSound) maxSound = micData;
-    displayOnScreen("Max: " + String(maxSound), 12, 0x888888);
-    displayOnScreen("Ant: " + String(lastSound), 13, 0x888888);
-    lastSound = micData;
-}
-
 void demonstrateAnimation() {
     static float ballX = 100, ballY = 50;
     static unsigned long lastUpdate = 0;
-    
-    initScreenOnce(0x000033); // Limpa tela apenas uma vez (fundo azul escuro)
-    
+    static bool screenCleared = false;
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000033);
+        screenCleared = true;
+    }
+    if (currentMode != 9) {
+        screenCleared = false;
+    }
     if (millis() - lastUpdate > 50) {
         lastUpdate = millis();
-        
         ballX += ballSpeedX;
         ballY += ballSpeedY;
-        
-        // Rebater nas bordas
         if (ballX <= 0 || ballX >= 230) ballSpeedX = -ballSpeedX;
         if (ballY <= 20 || ballY >= 100) ballSpeedY = -ballSpeedY;
-        
         ballX = constrain(ballX, 0, 230);
         ballY = constrain(ballY, 20, 100);
-        
-        // Atualizar apenas o conteúdo necessário
-        displayOnScreen(" ANIMACAO ", 1, 0x00FFFF);
-        displayOnScreen("Bola rebatendo", 2, 0xFFFFFF);
-        
-        // Limpar linha anterior da bola (usando espaços)
         for (int i = 3; i <= 12; i++) {
             displayOnScreen("                    ", i, 0x000000);
         }
-        
-        // Desenhar "bola" com texto
-        int row = (int)(ballY / 10) + 3;
-        displayOnScreen("O", row, 0xFFFF00);
-        
-        displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 13, 0x888888);
-        displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 14, 0x888888);
     }
-    
-    // LEDs acompanham a bola
+    displayOnScreen(" ANIMACAO ", 1, 0x00FFFF);
+    displayOnScreen("Bola rebatendo", 2, 0xFFFFFF);
+    int row = (int)(ballY / 10) + 3;
+    displayOnScreen("O", row, 0xFFFF00);
+    displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 13, 0x888888);
+    displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 14, 0x888888);
     int ledR = map(ballX, 0, 230, 0, 255);
     int ledG = map(ballY, 20, 100, 0, 255);
     uint32_t color = (ledR << 16) | (ledG << 8) | 100;
     setAllLeds(color);
-}
-
-void demonstrateInteraction() {
-   initScreenOnce(); // Limpa tela apenas uma vez por modo
-    k10.setScreenBackground(0x000000);
-    
-    readAllSensors();
-    
-    displayOnScreen(" INTERACAO ", 1, 0x00FFFF);
-    displayOnScreen("Multi-sensor demo", 2, 0xFFFFFF);
-    
-    // Combinar sensores para efeito
-    int redFromSound = map(micData, 0, 10000, 0, 255);
-    int greenFromLight = map(lightPercent, 0, 100, 0, 255);
-    int blueFromAccel = map(abs(accelZ), 0, 10, 0, 255);
-    
-    redFromSound = constrain(redFromSound, 0, 255);
-    greenFromLight = constrain(greenFromLight, 0, 255);
-    blueFromAccel = constrain(blueFromAccel, 0, 255);
-    
-    uint32_t combinedColor = (redFromSound << 16) | (greenFromLight << 8) | blueFromAccel;
-    setAllLeds(combinedColor);
-    
-    displayOnScreen("Som->Vermelho:" + String(redFromSound), 4, 0xFF0000);
-    displayOnScreen("Luz->Verde:" + String(greenFromLight), 5, 0x00FF00);
-    displayOnScreen("Accel->Azul:" + String(blueFromAccel), 6, 0x0000FF);
-    
-    displayOnScreen("Temp: " + String(temperature, 1) + "°C", 8, 0xFFFF00);
-    displayOnScreen("Umid: " + String(humidity, 1) + "%", 9, 0x00FFFF);
-    
-    displayOnScreen("Faca barulho,", 11, 0x888888);
-    displayOnScreen("mova e ilumine!", 12, 0x888888);
 }
 
 void demonstrateAudio() {
@@ -1039,19 +843,10 @@ void demonstrateAudio() {
         soundPlayed = true;
         Serial.println("=== INICIANDO CAMPAINHA ===");
         
-        // Campainha "blim-blom"
-        Serial.println("Tom 1: 800Hz");
-        playTone(800, 200);
-        
-        Serial.println("Tom 2: 600Hz");
-        playTone(600, 200);
-        
-        Serial.println("Tom 3: 800Hz");
-        playTone(800, 200);
-        
-        Serial.println("Tom 4: 600Hz (longo)");
-        playTone(600, 400);
-        
+        music.playMusic(RINGTONE);
+	    delay(3000);
+	    music.stopPlayTone();
+
         displayOnScreen("Campainha tocada!", 9, 0x00FF00);
         displayOnScreen("Reiniciando em 3s...", 10, 0x888888);
         
@@ -1069,21 +864,24 @@ void demonstrateAudio() {
 }
 
 void demonstrateSDCard() {
-    initScreenOnce(); // Limpa tela apenas uma vez por modo
-    static bool contentDrawn = false;
     static unsigned long lastUpdateSD = 0;
-    
-    // Limpa tela apenas uma vez
-    if (initScreenOnce()) {
-        contentDrawn = false;
+    static bool screenCleared = false;
+        
+    // Limpar tela UMA VEZ ao entrar no modo SD
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
     }
     
-    // Desenhar conteúdo estático apenas uma vez
-    if (!contentDrawn) {
-        displayOnScreen(" CARTAO SD ", 1, 0x00FFFF);
-        displayOnScreen("Status SD:", 3, 0xFFFFFF);
-        contentDrawn = true;
+    // Reset da flag quando sair do modo
+    if (currentMode != 7) {
+        screenCleared = false;
     }
+    
+    // Desenhar labels estáticos (mesmo padrão de demonstrateSensors)
+    displayOnScreen(" CARTAO SD ", 1, 0x00FFFF);
+    displayOnScreen("Status SD:", 3, 0xFFFFFF);
     
     if (sdCardAvailable) {
         displayOnScreen("CONECTADO", 4, 0x00FF00);
@@ -1145,20 +943,23 @@ void demonstrateSDCard() {
 }
 
 void demonstrateAll() {
-    initScreenOnce(); // Limpa tela apenas uma vez por modo
-    
     static unsigned long lastUpdate = 0;
     static int subMode = 0;
-    
+    static bool screenCleared = false;
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
+    }
+    if (currentMode != 10) {
+        screenCleared = false;
+    }
     if (millis() - lastUpdate > 2000) {
         lastUpdate = millis();
         subMode = (subMode + 1) % 4;
     }
-    
     displayOnScreen(" DEMO COMPLETA ", 1, 0x00FFFF);
-    
     readAllSensors();
-    
     switch (subMode) {
         case 0:
             displayOnScreen("SENSORES:", 3, 0xFFFF00);
@@ -1185,31 +986,32 @@ void demonstrateAll() {
             displayOnScreen("aos sensores", 6, 0xFFFFFF);
             break;
     }
-    
-    // LEDs combinados de todos os sensores
     int r = map(abs(accelX), 0, 10, 0, 255);
     int g = map(lightPercent, 0, 100, 0, 255);
     int b = map(micData % 10000, 0, 9999, 0, 255);
     setAllLeds((r << 16) | (g << 8) | b);
-    
     displayOnScreen("Rotacao a cada 2s", 14, 0x444444);
 }
 
 void demonstrateCamera() {
-    initScreenOnce(); // Limpa tela apenas uma vez por modo
-    
+    static bool screenCleared = false;
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
+    }
+    if (currentMode != 3) {
+        screenCleared = false;
+    }
     displayOnScreen(" CAMERA ", 1, 0x00FFFF);
     displayOnScreen("Funcionalidade", 3, 0xFFFFFF);
     displayOnScreen("de camera nao", 4, 0xFFFFFF);
     displayOnScreen("implementada", 5, 0xFFFFFF);
     displayOnScreen("nesta demo", 6, 0xFFFFFF);
     displayOnScreen("basica", 7, 0xFFFFFF);
-    
     displayOnScreen("Hardware pronto", 9, 0x888888);
     displayOnScreen("para expansao", 10, 0x888888);
     displayOnScreen("futura", 11, 0x888888);
-    
-    // Simular atividade de câmera com LEDs
     static unsigned long lastBlink = 0;
     if (millis() - lastBlink > 1000) {
         lastBlink = millis();
@@ -1220,27 +1022,29 @@ void demonstrateCamera() {
 }
 
 void demonstrateWiFi() {
-    static bool contentDrawn = false;
     static unsigned long lastUpdate = 0;
     static unsigned long lastScan = 0;
     static String lastDisplayedStatus = "";
     static String lastDisplayedIP = "";
-    
-    // Limpa tela apenas uma vez
-    if (initScreenOnce()) {
-        contentDrawn = false;
-        lastDisplayedStatus = "";
-        lastDisplayedIP = "";
+    static bool screenCleared = false;
+        
+    // Limpar tela UMA VEZ ao entrar no modo WiFi
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
     }
     
-    // Desenhar conteúdo estático apenas uma vez
-    if (!contentDrawn) {
-        displayOnScreen(" WiFi STATUS ", 1, 0x00FFFF);
-        displayOnScreen("A: Reconectar", 12, 0x888888);
-        displayOnScreen("B: Scan redes", 13, 0x888888);
-        contentDrawn = true;
+    // Reset da flag quando sair do modo
+    if (currentMode != 5) {
+        screenCleared = false;
     }
-    
+        
+    // Desenhar labels estáticos (mesmo padrão de demonstrateSensors)
+    displayOnScreen(" WiFi STATUS ", 1, 0x00FFFF);
+    displayOnScreen("A: Reconectar", 12, 0x888888);
+    displayOnScreen("B: Scan redes", 13, 0x888888);
+        
     // Atualizar informações apenas se mudaram
     if (lastDisplayedStatus != wifiStatus) {
         displayOnScreen("Status: " + wifiStatus, 2, wifiConnected ? 0x00FF00 : 0xFF8800);
@@ -1459,21 +1263,25 @@ void showWiFiInfo() {
 }
 
 void demonstrateBluetooth() {
-    initScreenOnce(); // Limpa tela apenas uma vez por modo
-    
+    static bool screenCleared = false;
+    if (!screenCleared) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        screenCleared = true;
+    }
+    if (currentMode != 6) {
+        screenCleared = false;
+    }
     displayOnScreen(" BLUETOOTH ", 1, 0x00FFFF);
     displayOnScreen("Conectividade", 3, 0xFFFFFF);
     displayOnScreen("Bluetooth", 4, 0xFFFFFF);
     displayOnScreen("disponivel mas", 5, 0xFFFFFF);
     displayOnScreen("desabilitada", 6, 0xFFFFFF);
     displayOnScreen("nesta demo", 7, 0xFFFFFF);
-    
     displayOnScreen("Capacidades:", 9, 0xFFFF00);
     displayOnScreen("- BLE", 10, 0x888888);
     displayOnScreen("- Classic BT", 11, 0x888888);
     displayOnScreen("- Serial SPP", 12, 0x888888);
-    
-    // Simular atividade Bluetooth
     static unsigned long btBlink = 0;
     if (millis() - btBlink > 2000) {
         btBlink = millis();
@@ -1638,33 +1446,3 @@ size_t getSDFileSize(String filename) {
     return size;
 }
 
-//  FUNÇÕES DE ÁUDIO 
-
-void playBeep() {
-    playTone(1000, 200);
-}
-
-void playTone(int frequency, int duration) {
-    // Melhorado: Simular som com LEDs piscando na frequência
-    Serial.println("Tocando frequencia: " + String(frequency) + "Hz por " + String(duration) + "ms");
-    
-    unsigned long startTime = millis();
-    unsigned long blinkInterval = 1000000 / (frequency * 2); // Microsegundos para cada piscada
-    bool ledState = false;
-    
-    while (millis() - startTime < duration) {
-        static unsigned long lastBlink = 0;
-        if (micros() - lastBlink > blinkInterval) {
-            ledState = !ledState;
-            if (ledState) {
-                setAllLeds(0xFFFFFF); // Branco para indicar tom
-            } else {
-                setAllLedsOff();
-            }
-            lastBlink = micros();
-        }
-    }
-    
-    setAllLedsOff();
-    delay(50); // Pausa entre tons
-}
