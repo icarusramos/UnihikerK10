@@ -316,15 +316,15 @@ void showWelcomeScreen() {
     k10.canvas->canvasClear();
     k10.setScreenBackground(0x001122);
     
-    displayOnScreen("UNIHIKER K10", 2, 0x00FFFF);
-    displayOnScreen("DEMO COMPLETO", 4, 0xFFFF00);
-    displayOnScreen("Todas funcoes", 6, 0xFFFFFF);
-    displayOnScreen("implementadas", 7, 0xFFFFFF);
+    displayOnScreen("UNIHIKER K10", 3, 0x00FFFF);
+    displayOnScreen("DEMO COMPLETO", 5, 0xFFFF00);
+    displayOnScreen("Todas funcoes", 7, 0xFFFFFF);
+    displayOnScreen("implementadas", 8, 0xFFFFFF);
     
     // Indicadores de status
-    displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 9, sdCardAvailable ? 0x00FF00 : 0xFF0000);
-    displayOnScreen("LFS: " + String(LittleFS.begin() ? "OK" : "NO"), 10, 0x00FF00);
-    displayOnScreen("Carregando...", 12, 0x888888);
+    displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 10, sdCardAvailable ? 0x00FF00 : 0xFF0000);
+    displayOnScreen("LFS: " + String(LittleFS.begin() ? "OK" : "NO"), 11, 0x00FF00);
+    displayOnScreen("Carregando...", 13, 0x888888);
     
     // Animação de LEDs durante carregamento
     for (int i = 0; i < 3; i++) {
@@ -336,17 +336,18 @@ void showWelcomeScreen() {
 }
 
 void showMainMenu() {
+    // Limpar tela completamente
     k10.canvas->canvasClear();
     k10.setScreenBackground(0x000000);
     
-    displayOnScreen("=== MENU PRINCIPAL ===", 0, 0x00FFFF);
+    displayOnScreen("=== MENU PRINCIPAL ===", 1, 0x00FFFF);
     
     for (int i = 0; i < 10; i++) {
-        displayOnScreen(menuItems[i], i + 1, 0xFFFFFF);
+        displayOnScreen(menuItems[i], i + 2, 0xFFFFFF);
     }
     
-    displayOnScreen("Use botoes A/B", 12, 0xFFFF00);
-    displayOnScreen("A+B = Proximo modo", 13, 0x888888);
+    displayOnScreen("Use botoes A/B", 13, 0xFFFF00);
+    displayOnScreen("A+B = Proximo modo", 14, 0x888888);
 }
 
 void handleButtons() {
@@ -474,6 +475,10 @@ void readAllSensors() {
 }
 
 void demonstrateLEDs() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     static unsigned long lastUpdate = 0;
     static int state = 0;
     
@@ -493,32 +498,39 @@ void demonstrateLEDs() {
         state++;
     }
     
-    displayOnScreen("=== DEMO LEDs ===", 0, 0x00FFFF);
-    displayOnScreen("Cores automaticas", 2, 0xFFFFFF);
-    displayOnScreen("Estado: " + String(state % 8), 4, 0xFFFF00);
-    displayOnScreen("A: Mudar modo", 10, 0x888888);
-    displayOnScreen("B: Flash todos", 11, 0x888888);
-    displayOnScreen("A+B: Proximo demo", 12, 0x888888);
+    displayOnScreen("=== DEMO LEDs ===", 1, 0x00FFFF);
+    displayOnScreen("Cores automaticas", 3, 0xFFFFFF);
+    displayOnScreen("Estado: " + String(state % 8), 5, 0xFFFF00);
+    displayOnScreen("A: Mudar modo", 11, 0x888888);
+    displayOnScreen("B: Flash todos", 12, 0x888888);
+    displayOnScreen("A+B: Proximo demo", 13, 0x888888);
 }
 
 void demonstrateSensors() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     readAllSensors();
     
-    displayOnScreen("=== SENSORES ===", 0, 0x00FFFF);
-    displayOnScreen("Temperatura:", 2, 0xFFFFFF);
-    displayOnScreen(String(temperature, 1) + "°C", 3, 0x00FF00);
-    displayOnScreen("Umidade:", 4, 0xFFFFFF);
-    displayOnScreen(String(humidity, 1) + "%", 5, 0x00FF00);
-    displayOnScreen("Luminosidade:", 6, 0xFFFFFF);
-    displayOnScreen(String(lightPercent) + "%", 7, 0x00FF00);
-    displayOnScreen("Acelerometro:", 8, 0xFFFFFF);
-    displayOnScreen("X:" + String(accelX, 1), 9, 0x888888);
-    displayOnScreen("Y:" + String(accelY, 1), 10, 0x888888);
-    displayOnScreen("Z:" + String(accelZ, 1), 11, 0x888888);
-    displayOnScreen("Mic:" + String(micData), 12, 0x888888);
+    displayOnScreen("=== SENSORES ===", 1, 0x00FFFF);
+    displayOnScreen("Temperatura:", 3, 0xFFFFFF);
+    displayOnScreen(String(temperature, 1) + "°C", 4, 0x00FF00);
+    displayOnScreen("Umidade:", 5, 0xFFFFFF);
+    displayOnScreen(String(humidity, 1) + "%", 6, 0x00FF00);
+    displayOnScreen("Luminosidade:", 7, 0xFFFFFF);
+    displayOnScreen(String(lightPercent) + "%", 8, 0x00FF00);
+    displayOnScreen("Acelerometro:", 9, 0xFFFFFF);
+    displayOnScreen("X:" + String(accelX, 1), 10, 0x888888);
+    displayOnScreen("Y:" + String(accelY, 1), 11, 0x888888);
+    displayOnScreen("Z:" + String(accelZ, 1), 12, 0x888888);
+    displayOnScreen("Mic:" + String(micData), 13, 0x888888);
 }
 
 void demonstrateScreen() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    
     static unsigned long lastUpdate = 0;
     static int colorIndex = 0;
     
@@ -530,28 +542,32 @@ void demonstrateScreen() {
     uint32_t bgColors[] = {0x000000, 0x001122, 0x112200, 0x220011, 0x002211, 0x110022, 0x221100};
     k10.setScreenBackground(bgColors[colorIndex % 7]);
     
-    displayOnScreen("=== DEMO TELA ===", 0, 0x00FFFF);
-    displayOnScreen("Cores de fundo", 2, 0xFFFFFF);
-    displayOnScreen("automaticas", 3, 0xFFFFFF);
+    displayOnScreen("=== DEMO TELA ===", 1, 0x00FFFF);
+    displayOnScreen("Cores de fundo", 3, 0xFFFFFF);
+    displayOnScreen("automaticas", 4, 0xFFFFFF);
     
     // Mostrar diferentes cores de texto
-    displayOnScreen("Texto VERMELHO", 5, 0xFF0000);
-    displayOnScreen("Texto VERDE", 6, 0x00FF00);
-    displayOnScreen("Texto AZUL", 7, 0x0000FF);
-    displayOnScreen("Texto AMARELO", 8, 0xFFFF00);
-    displayOnScreen("Texto MAGENTA", 9, 0xFF00FF);
-    displayOnScreen("Texto CIANO", 10, 0x00FFFF);
-    displayOnScreen("Texto BRANCO", 11, 0xFFFFFF);
+    displayOnScreen("Texto VERMELHO", 6, 0xFF0000);
+    displayOnScreen("Texto VERDE", 7, 0x00FF00);
+    displayOnScreen("Texto AZUL", 8, 0x0000FF);
+    displayOnScreen("Texto AMARELO", 9, 0xFFFF00);
+    displayOnScreen("Texto MAGENTA", 10, 0xFF00FF);
+    displayOnScreen("Texto CIANO", 11, 0x00FFFF);
+    displayOnScreen("Texto BRANCO", 12, 0xFFFFFF);
     
-    displayOnScreen("Cor: " + String(colorIndex % 7), 13, 0x888888);
+    displayOnScreen("Cor: " + String(colorIndex % 7), 14, 0x888888);
 }
 
 void demonstrateButtons() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     static String lastAction = "Nenhuma";
     static unsigned long lastTime = 0;
     
-    displayOnScreen("=== DEMO BOTOES ===", 0, 0x00FFFF);
-    displayOnScreen("Pressione botoes:", 2, 0xFFFFFF);
+    displayOnScreen("=== DEMO BOTOES ===", 1, 0x00FFFF);
+    displayOnScreen("Pressione botoes:", 3, 0xFFFFFF);
     
     if (k10.buttonA->isPressed() && millis() - lastTime > 300) {
         lastAction = "Botao A";
@@ -568,17 +584,21 @@ void demonstrateButtons() {
         setAllLedsOff();
     }
     
-    displayOnScreen("Ultima acao:", 4, 0xFFFF00);
-    displayOnScreen(lastAction, 5, 0x00FF00);
-    displayOnScreen("A = LED Vermelho", 8, 0x888888);
-    displayOnScreen("B = LED Verde", 9, 0x888888);
-    displayOnScreen("A+B = Proximo modo", 11, 0x888888);
+    displayOnScreen("Ultima acao:", 5, 0xFFFF00);
+    displayOnScreen(lastAction, 6, 0x00FF00);
+    displayOnScreen("A = LED Vermelho", 9, 0x888888);
+    displayOnScreen("B = LED Verde", 10, 0x888888);
+    displayOnScreen("A+B = Proximo modo", 12, 0x888888);
     
     unsigned long elapsed = (millis() - lastTime) / 1000;
-    displayOnScreen("Desde: " + String(elapsed) + "s", 7, 0x444444);
+    displayOnScreen("Desde: " + String(elapsed) + "s", 8, 0x444444);
 }
 
 void demonstrateAccelerometer() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     readAllSensors();
     
     // Controlar LEDs baseado na inclinação
@@ -593,25 +613,29 @@ void demonstrateAccelerometer() {
     uint32_t color = (redLevel << 16) | (greenLevel << 8) | blueLevel;
     setAllLeds(color);
     
-    displayOnScreen("=== ACELEROMETRO ===", 0, 0x00FFFF);
-    displayOnScreen("Incline o dispositivo", 1, 0xFFFFFF);
-    displayOnScreen("LEDs mudam com", 2, 0xFFFFFF);
-    displayOnScreen("a inclinacao", 3, 0xFFFFFF);
+    displayOnScreen("=== ACELEROMETRO ===", 1, 0x00FFFF);
+    displayOnScreen("Incline o dispositivo", 2, 0xFFFFFF);
+    displayOnScreen("LEDs mudam com", 3, 0xFFFFFF);
+    displayOnScreen("a inclinacao", 4, 0xFFFFFF);
     
-    displayOnScreen("X: " + String(accelX, 2), 5, 0xFF0000);
-    displayOnScreen("Y: " + String(accelY, 2), 6, 0x00FF00);
-    displayOnScreen("Z: " + String(accelZ, 2), 7, 0x0000FF);
+    displayOnScreen("X: " + String(accelX, 2), 6, 0xFF0000);
+    displayOnScreen("Y: " + String(accelY, 2), 7, 0x00FF00);
+    displayOnScreen("Z: " + String(accelZ, 2), 8, 0x0000FF);
     
-    displayOnScreen("LED R:" + String(redLevel), 9, 0xFF0000);
-    displayOnScreen("LED G:" + String(greenLevel), 10, 0x00FF00);
-    displayOnScreen("LED B:" + String(blueLevel), 11, 0x0000FF);
+    displayOnScreen("LED R:" + String(redLevel), 10, 0xFF0000);
+    displayOnScreen("LED G:" + String(greenLevel), 11, 0x00FF00);
+    displayOnScreen("LED B:" + String(blueLevel), 12, 0x0000FF);
     
     // Barra de intensidade total
     float totalAccel = sqrt(accelX*accelX + accelY*accelY + accelZ*accelZ);
-    displayOnScreen("Total:" + String(totalAccel, 1), 13, 0xFFFFFF);
+    displayOnScreen("Total:" + String(totalAccel, 1), 14, 0xFFFFFF);
 }
 
 void demonstrateLight() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     readAllSensors();
     
     // Ajustar brilho dos LEDs baseado na luz ambiente
@@ -621,14 +645,14 @@ void demonstrateLight() {
     uint32_t color = (brightness << 16) | (brightness << 8) | brightness; // Branco
     setAllLeds(color);
     
-    displayOnScreen("=== SENSOR DE LUZ ===", 0, 0x00FFFF);
-    displayOnScreen("LEDs ajustam", 1, 0xFFFFFF);
-    displayOnScreen("com luz ambiente", 2, 0xFFFFFF);
+    displayOnScreen("=== SENSOR DE LUZ ===", 1, 0x00FFFF);
+    displayOnScreen("LEDs ajustam", 2, 0xFFFFFF);
+    displayOnScreen("com luz ambiente", 3, 0xFFFFFF);
     
-    displayOnScreen("Luminosidade:", 4, 0xFFFF00);
-    displayOnScreen(String(lightPercent) + "%", 5, 0x00FF00);
-    displayOnScreen("Raw: " + String(lightRaw), 6, 0x888888);
-    displayOnScreen("Brilho LED: " + String(brightness), 8, 0xFFFFFF);
+    displayOnScreen("Luminosidade:", 5, 0xFFFF00);
+    displayOnScreen(String(lightPercent) + "%", 6, 0x00FF00);
+    displayOnScreen("Raw: " + String(lightRaw), 7, 0x888888);
+    displayOnScreen("Brilho LED: " + String(brightness), 9, 0xFFFFFF);
     
     // Indicador visual da luminosidade
     String lightBar = "Luz: [";
@@ -637,12 +661,16 @@ void demonstrateLight() {
         lightBar += (i < bars) ? "=" : " ";
     }
     lightBar += "]";
-    displayOnScreen(lightBar, 10, 0x00FFFF);
+    displayOnScreen(lightBar, 11, 0x00FFFF);
     
-    displayOnScreen("Min:" + String(minLight) + " Max:" + String(maxLight), 12, 0x444444);
+    displayOnScreen("Min:" + String(minLight) + " Max:" + String(maxLight), 13, 0x444444);
 }
 
 void demonstrateSound() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     readAllSensors();
     
     // LEDs reagem ao som
@@ -650,13 +678,13 @@ void demonstrateSound() {
     uint32_t color = (soundLevel << 8); // Verde baseado no som
     setAllLeds(color);
     
-    displayOnScreen("=== DEMO SOM ===", 0, 0x00FFFF);
-    displayOnScreen("Faca barulho!", 1, 0xFFFFFF);
-    displayOnScreen("LEDs reagem ao som", 2, 0xFFFFFF);
+    displayOnScreen("=== DEMO SOM ===", 1, 0x00FFFF);
+    displayOnScreen("Faca barulho!", 2, 0xFFFFFF);
+    displayOnScreen("LEDs reagem ao som", 3, 0xFFFFFF);
     
-    displayOnScreen("Nivel som:", 4, 0xFFFF00);
-    displayOnScreen(String(micData), 5, 0x00FF00);
-    displayOnScreen("LED Verde:" + String(soundLevel), 7, 0x00FF00);
+    displayOnScreen("Nivel som:", 5, 0xFFFF00);
+    displayOnScreen(String(micData), 6, 0x00FF00);
+    displayOnScreen("LED Verde:" + String(soundLevel), 8, 0x00FF00);
     
     // Barra visual do som
     String soundBar = "Som: [";
@@ -665,14 +693,14 @@ void demonstrateSound() {
         soundBar += (i < bars) ? "=" : " ";
     }
     soundBar += "]";
-    displayOnScreen(soundBar, 9, 0x00FF00);
+    displayOnScreen(soundBar, 10, 0x00FF00);
     
     // Histórico simples
     static int lastSound = 0;
     static int maxSound = 0;
     if (micData > maxSound) maxSound = micData;
-    displayOnScreen("Max: " + String(maxSound), 11, 0x888888);
-    displayOnScreen("Ant: " + String(lastSound), 12, 0x888888);
+    displayOnScreen("Max: " + String(maxSound), 12, 0x888888);
+    displayOnScreen("Ant: " + String(lastSound), 13, 0x888888);
     lastSound = micData;
 }
 
@@ -694,18 +722,19 @@ void demonstrateAnimation() {
         ballY = constrain(ballY, 20, 100);
     }
     
+    // Limpar tela completamente a cada frame
     k10.canvas->canvasClear();
     k10.setScreenBackground(0x000033);
     
-    displayOnScreen("=== ANIMACAO ===", 0, 0x00FFFF);
-    displayOnScreen("Bola rebatendo", 1, 0xFFFFFF);
+    displayOnScreen("=== ANIMACAO ===", 1, 0x00FFFF);
+    displayOnScreen("Bola rebatendo", 2, 0xFFFFFF);
     
     // Desenhar "bola" com texto
-    int row = (int)(ballY / 10) + 2;
+    int row = (int)(ballY / 10) + 3;
     displayOnScreen("O", row, 0xFFFF00);
     
-    displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 12, 0x888888);
-    displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 13, 0x888888);
+    displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 13, 0x888888);
+    displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 14, 0x888888);
     
     // LEDs acompanham a bola
     int ledR = map(ballX, 0, 230, 0, 255);
@@ -715,10 +744,14 @@ void demonstrateAnimation() {
 }
 
 void demonstrateInteraction() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     readAllSensors();
     
-    displayOnScreen("=== INTERACAO ===", 0, 0x00FFFF);
-    displayOnScreen("Multi-sensor demo", 1, 0xFFFFFF);
+    displayOnScreen("=== INTERACAO ===", 1, 0x00FFFF);
+    displayOnScreen("Multi-sensor demo", 2, 0xFFFFFF);
     
     // Combinar sensores para efeito
     int redFromSound = map(micData, 0, 10000, 0, 255);
@@ -732,53 +765,65 @@ void demonstrateInteraction() {
     uint32_t combinedColor = (redFromSound << 16) | (greenFromLight << 8) | blueFromAccel;
     setAllLeds(combinedColor);
     
-    displayOnScreen("Som->Vermelho:" + String(redFromSound), 3, 0xFF0000);
-    displayOnScreen("Luz->Verde:" + String(greenFromLight), 4, 0x00FF00);
-    displayOnScreen("Accel->Azul:" + String(blueFromAccel), 5, 0x0000FF);
+    displayOnScreen("Som->Vermelho:" + String(redFromSound), 4, 0xFF0000);
+    displayOnScreen("Luz->Verde:" + String(greenFromLight), 5, 0x00FF00);
+    displayOnScreen("Accel->Azul:" + String(blueFromAccel), 6, 0x0000FF);
     
-    displayOnScreen("Temp: " + String(temperature, 1) + "°C", 7, 0xFFFF00);
-    displayOnScreen("Umid: " + String(humidity, 1) + "%", 8, 0x00FFFF);
+    displayOnScreen("Temp: " + String(temperature, 1) + "°C", 8, 0xFFFF00);
+    displayOnScreen("Umid: " + String(humidity, 1) + "%", 9, 0x00FFFF);
     
-    displayOnScreen("Faca barulho,", 10, 0x888888);
-    displayOnScreen("mova e ilumine!", 11, 0x888888);
+    displayOnScreen("Faca barulho,", 11, 0x888888);
+    displayOnScreen("mova e ilumine!", 12, 0x888888);
 }
 
 void demonstrateAudio() {
-    displayOnScreen("=== AUDIO/ASR ===", 0, 0x00FFFF);
-    displayOnScreen("Funcionalidade", 2, 0xFFFFFF);
-    displayOnScreen("de reconhecimento", 3, 0xFFFFFF);
-    displayOnScreen("de voz nao", 4, 0xFFFFFF);
-    displayOnScreen("implementada nesta", 5, 0xFFFFFF);
-    displayOnScreen("demo basica", 6, 0xFFFFFF);
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
+    displayOnScreen("=== AUDIO/ASR ===", 1, 0x00FFFF);
+    displayOnScreen("Funcionalidade", 3, 0xFFFFFF);
+    displayOnScreen("de reconhecimento", 4, 0xFFFFFF);
+    displayOnScreen("de voz nao", 5, 0xFFFFFF);
+    displayOnScreen("implementada nesta", 6, 0xFFFFFF);
+    displayOnScreen("demo basica", 7, 0xFFFFFF);
     
     readAllSensors();
-    displayOnScreen("Nivel mic: " + String(micData), 8, 0x00FF00);
-    displayOnScreen("Use modo Som", 10, 0x888888);
-    displayOnScreen("para interacao", 11, 0x888888);
+    displayOnScreen("Nivel mic: " + String(micData), 9, 0x00FF00);
+    displayOnScreen("Use modo Som", 11, 0x888888);
+    displayOnScreen("para interacao", 12, 0x888888);
 }
 
 void demonstrateSDCard() {
-    displayOnScreen("=== CARTAO SD ===", 0, 0x00FFFF);
-    displayOnScreen("Status SD:", 2, 0xFFFFFF);
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
+    displayOnScreen("=== CARTAO SD ===", 1, 0x00FFFF);
+    displayOnScreen("Status SD:", 3, 0xFFFFFF);
     
     if (sdCardAvailable) {
-        displayOnScreen("CONECTADO", 3, 0x00FF00);
-        displayOnScreen("Funcoes basicas", 5, 0xFFFFFF);
-        displayOnScreen("de arquivo", 6, 0xFFFFFF);
-        displayOnScreen("disponiveis", 7, 0xFFFFFF);
+        displayOnScreen("CONECTADO", 4, 0x00FF00);
+        displayOnScreen("Funcoes basicas", 6, 0xFFFFFF);
+        displayOnScreen("de arquivo", 7, 0xFFFFFF);
+        displayOnScreen("disponiveis", 8, 0xFFFFFF);
     } else {
-        displayOnScreen("DESCONECTADO", 3, 0xFF0000);
-        displayOnScreen("Insira um cartao", 5, 0xFFFFFF);
-        displayOnScreen("SD para usar", 6, 0xFFFFFF);
-        displayOnScreen("funcoes de", 7, 0xFFFFFF);
-        displayOnScreen("armazenamento", 8, 0xFFFFFF);
+        displayOnScreen("DESCONECTADO", 4, 0xFF0000);
+        displayOnScreen("Insira um cartao", 6, 0xFFFFFF);
+        displayOnScreen("SD para usar", 7, 0xFFFFFF);
+        displayOnScreen("funcoes de", 8, 0xFFFFFF);
+        displayOnScreen("armazenamento", 9, 0xFFFFFF);
     }
     
-    displayOnScreen("LittleFS:", 10, 0xFFFF00);
-    displayOnScreen(LittleFS.begin() ? "OK" : "ERRO", 11, LittleFS.begin() ? 0x00FF00 : 0xFF0000);
+    displayOnScreen("LittleFS:", 11, 0xFFFF00);
+    displayOnScreen(LittleFS.begin() ? "OK" : "ERRO", 12, LittleFS.begin() ? 0x00FF00 : 0xFF0000);
 }
 
 void demonstrateAll() {
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
+    
     static unsigned long lastUpdate = 0;
     static int subMode = 0;
     
@@ -787,34 +832,34 @@ void demonstrateAll() {
         subMode = (subMode + 1) % 4;
     }
     
-    displayOnScreen("=== DEMO COMPLETA ===", 0, 0x00FFFF);
+    displayOnScreen("=== DEMO COMPLETA ===", 1, 0x00FFFF);
     
     readAllSensors();
     
     switch (subMode) {
         case 0:
-            displayOnScreen("SENSORES:", 2, 0xFFFF00);
-            displayOnScreen("T:" + String(temperature, 1) + "°C", 3, 0x00FF00);
-            displayOnScreen("H:" + String(humidity, 1) + "%", 4, 0x00FF00);
-            displayOnScreen("L:" + String(lightPercent) + "%", 5, 0x00FF00);
+            displayOnScreen("SENSORES:", 3, 0xFFFF00);
+            displayOnScreen("T:" + String(temperature, 1) + "°C", 4, 0x00FF00);
+            displayOnScreen("H:" + String(humidity, 1) + "%", 5, 0x00FF00);
+            displayOnScreen("L:" + String(lightPercent) + "%", 6, 0x00FF00);
             break;
         case 1:
-            displayOnScreen("MOVIMENTO:", 2, 0xFFFF00);
-            displayOnScreen("X:" + String(accelX, 1), 3, 0xFF0000);
-            displayOnScreen("Y:" + String(accelY, 1), 4, 0x00FF00);
-            displayOnScreen("Z:" + String(accelZ, 1), 5, 0x0000FF);
+            displayOnScreen("MOVIMENTO:", 3, 0xFFFF00);
+            displayOnScreen("X:" + String(accelX, 1), 4, 0xFF0000);
+            displayOnScreen("Y:" + String(accelY, 1), 5, 0x00FF00);
+            displayOnScreen("Z:" + String(accelZ, 1), 6, 0x0000FF);
             break;
         case 2:
-            displayOnScreen("SISTEMA:", 2, 0xFFFF00);
-            displayOnScreen("WiFi: OFF", 3, 0x888888);
-            displayOnScreen("BT: OFF", 4, 0x888888);
-            displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 5, sdCardAvailable ? 0x00FF00 : 0xFF0000);
+            displayOnScreen("SISTEMA:", 3, 0xFFFF00);
+            displayOnScreen("WiFi: OFF", 4, 0x888888);
+            displayOnScreen("BT: OFF", 5, 0x888888);
+            displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 6, sdCardAvailable ? 0x00FF00 : 0xFF0000);
             break;
         case 3:
-            displayOnScreen("INTERACAO:", 2, 0xFFFF00);
-            displayOnScreen("Som:" + String(micData), 3, 0x00FFFF);
-            displayOnScreen("LEDs reativos", 4, 0xFFFFFF);
-            displayOnScreen("aos sensores", 5, 0xFFFFFF);
+            displayOnScreen("INTERACAO:", 3, 0xFFFF00);
+            displayOnScreen("Som:" + String(micData), 4, 0x00FFFF);
+            displayOnScreen("LEDs reativos", 5, 0xFFFFFF);
+            displayOnScreen("aos sensores", 6, 0xFFFFFF);
             break;
     }
     
@@ -824,20 +869,24 @@ void demonstrateAll() {
     int b = map(micData % 10000, 0, 9999, 0, 255);
     setAllLeds((r << 16) | (g << 8) | b);
     
-    displayOnScreen("Rotacao a cada 2s", 13, 0x444444);
+    displayOnScreen("Rotacao a cada 2s", 14, 0x444444);
 }
 
 void demonstrateCamera() {
-    displayOnScreen("=== CAMERA ===", 0, 0x00FFFF);
-    displayOnScreen("Funcionalidade", 2, 0xFFFFFF);
-    displayOnScreen("de camera nao", 3, 0xFFFFFF);
-    displayOnScreen("implementada", 4, 0xFFFFFF);
-    displayOnScreen("nesta demo", 5, 0xFFFFFF);
-    displayOnScreen("basica", 6, 0xFFFFFF);
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
     
-    displayOnScreen("Hardware pronto", 8, 0x888888);
-    displayOnScreen("para expansao", 9, 0x888888);
-    displayOnScreen("futura", 10, 0x888888);
+    displayOnScreen("=== CAMERA ===", 1, 0x00FFFF);
+    displayOnScreen("Funcionalidade", 3, 0xFFFFFF);
+    displayOnScreen("de camera nao", 4, 0xFFFFFF);
+    displayOnScreen("implementada", 5, 0xFFFFFF);
+    displayOnScreen("nesta demo", 6, 0xFFFFFF);
+    displayOnScreen("basica", 7, 0xFFFFFF);
+    
+    displayOnScreen("Hardware pronto", 9, 0x888888);
+    displayOnScreen("para expansao", 10, 0x888888);
+    displayOnScreen("futura", 11, 0x888888);
     
     // Simular atividade de câmera com LEDs
     static unsigned long lastBlink = 0;
@@ -850,18 +899,22 @@ void demonstrateCamera() {
 }
 
 void demonstrateWiFi() {
-    displayOnScreen("=== WiFi ===", 0, 0x00FFFF);
-    displayOnScreen("Conectividade", 2, 0xFFFFFF);
-    displayOnScreen("WiFi disponivel", 3, 0xFFFFFF);
-    displayOnScreen("mas desabilitada", 4, 0xFFFFFF);
-    displayOnScreen("nesta demo para", 5, 0xFFFFFF);
-    displayOnScreen("evitar conflitos", 6, 0xFFFFFF);
-    displayOnScreen("de inicializacao", 7, 0xFFFFFF);
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
     
-    displayOnScreen("Capacidades:", 9, 0xFFFF00);
-    displayOnScreen("- Station Mode", 10, 0x888888);
-    displayOnScreen("- Access Point", 11, 0x888888);
-    displayOnScreen("- HTTP Server", 12, 0x888888);
+    displayOnScreen("=== WiFi ===", 1, 0x00FFFF);
+    displayOnScreen("Conectividade", 3, 0xFFFFFF);
+    displayOnScreen("WiFi disponivel", 4, 0xFFFFFF);
+    displayOnScreen("mas desabilitada", 5, 0xFFFFFF);
+    displayOnScreen("nesta demo para", 6, 0xFFFFFF);
+    displayOnScreen("evitar conflitos", 7, 0xFFFFFF);
+    displayOnScreen("de inicializacao", 8, 0xFFFFFF);
+    
+    displayOnScreen("Capacidades:", 10, 0xFFFF00);
+    displayOnScreen("- Station Mode", 11, 0x888888);
+    displayOnScreen("- Access Point", 12, 0x888888);
+    displayOnScreen("- HTTP Server", 13, 0x888888);
     
     // Simular scan de redes com LEDs
     static int wifiSim = 0;
@@ -871,17 +924,21 @@ void demonstrateWiFi() {
 }
 
 void demonstrateBluetooth() {
-    displayOnScreen("=== BLUETOOTH ===", 0, 0x00FFFF);
-    displayOnScreen("Conectividade", 2, 0xFFFFFF);
-    displayOnScreen("Bluetooth", 3, 0xFFFFFF);
-    displayOnScreen("disponivel mas", 4, 0xFFFFFF);
-    displayOnScreen("desabilitada", 5, 0xFFFFFF);
-    displayOnScreen("nesta demo", 6, 0xFFFFFF);
+    // Limpar tela completamente
+    k10.canvas->canvasClear();
+    k10.setScreenBackground(0x000000);
     
-    displayOnScreen("Capacidades:", 8, 0xFFFF00);
-    displayOnScreen("- BLE", 9, 0x888888);
-    displayOnScreen("- Classic BT", 10, 0x888888);
-    displayOnScreen("- Serial SPP", 11, 0x888888);
+    displayOnScreen("=== BLUETOOTH ===", 1, 0x00FFFF);
+    displayOnScreen("Conectividade", 3, 0xFFFFFF);
+    displayOnScreen("Bluetooth", 4, 0xFFFFFF);
+    displayOnScreen("disponivel mas", 5, 0xFFFFFF);
+    displayOnScreen("desabilitada", 6, 0xFFFFFF);
+    displayOnScreen("nesta demo", 7, 0xFFFFFF);
+    
+    displayOnScreen("Capacidades:", 9, 0xFFFF00);
+    displayOnScreen("- BLE", 10, 0x888888);
+    displayOnScreen("- Classic BT", 11, 0x888888);
+    displayOnScreen("- Serial SPP", 12, 0x888888);
     
     // Simular atividade Bluetooth
     static unsigned long btBlink = 0;

@@ -2,7 +2,122 @@
 
 Este é um projeto completo de demonstração para o **UNIHIKER K10**, implementando todas as funcionalidades disponíveis no dispositivo com exemplos práticos e interativos.
 
-## 📋 Funcionalidades Implementadas
+## �️ Como Baixar e Executar o Projeto
+
+### Pré-requisitos
+- **VSCode** instalado
+- **PlatformIO Extension** instalada no VSCode
+- **UNIHIKER K10** conectado via USB
+- **Git** instalado (opcional, para clonar o repositório)
+
+### 📥 Baixando o Código
+
+#### Opção 1: Via Git (Recomendado)
+```bash
+git clone https://github.com/seu-usuario/UnihikerK10.git
+cd UnihikerK10
+```
+
+#### Opção 2: Download ZIP
+1. Clique em **"Code"** → **"Download ZIP"** na página do GitHub
+2. Extraia o arquivo ZIP em uma pasta de sua escolha
+3. Renomeie a pasta extraída para `UnihikerK10`
+
+### 🔧 Configuração no VSCode
+
+#### 1. Abrir o Projeto
+1. Abra o **VSCode**
+2. Vá em **File** → **Open Folder**
+3. Selecione a pasta `UnihikerK10` onde você baixou o projeto
+4. O VSCode deve detectar automaticamente que é um projeto PlatformIO
+
+#### 2. Instalar Dependências
+O PlatformIO irá automaticamente:
+- Baixar as bibliotecas necessárias
+- Configurar o toolchain ESP32-S3
+- Preparar o ambiente de compilação
+
+*Aguarde alguns minutos na primeira execução para download das dependências.*
+
+#### 3. Conectar a Placa
+1. Conecte o **UNIHIKER K10** ao computador via USB
+2. Verifique se a placa aparece nas portas COM (Windows) ou tty (Linux/Mac)
+3. O PlatformIO deve detectar automaticamente a placa
+
+### 🚀 Compilar e Executar
+
+#### Via Tasks do VSCode (Recomendado)
+1. Pressione **Ctrl+Shift+P** para abrir o Command Palette
+2. Digite "Tasks: Run Task" e pressione Enter
+3. Escolha uma das opções:
+   - **"PlatformIO Build"** - Apenas compilar (CTRL+ALT+B)
+   - **"Build and Upload UNIHIKER K10 Demo"** - Compilar e fazer upload (CTRL+ALT+U)
+
+#### Via PlatformIO Toolbar
+1. Na barra inferior do VSCode, clique nos ícones:
+   - **✓** (Build) - Compilar projeto
+   - **→** (Upload) - Compilar e fazer upload
+   - **🏠** (Home) - Abrir PlatformIO Home
+
+#### Via Terminal
+```bash
+# Compilar apenas
+platformio run
+
+# Compilar e fazer upload
+platformio run --target upload
+
+# Limpar e recompilar
+platformio run --target clean
+platformio run --target upload
+```
+
+### 🔍 Monitoramento e Debug
+
+#### Monitor Serial
+1. Após o upload, abra o **Serial Monitor**:
+   - Via toolbar: clique no ícone **📺**
+   - Via comando: **Ctrl+Shift+P** → "PlatformIO: Serial Monitor"
+2. Configure a velocidade para **115200 baud**
+3. Observe os logs em tempo real dos sensores e funcionalidades
+
+#### Logs Disponíveis
+- Status de inicialização dos sensores
+- Dados dos sensores em tempo real
+- Feedback de botões pressionados
+- Status de conexões WiFi/Bluetooth
+- Informações de armazenamento SD
+
+### 🐛 Solução de Problemas
+
+#### Placa não detectada
+1. Verifique se o cabo USB está conectado corretamente
+2. Pressione o botão **RESET** na placa
+3. Tente uma porta USB diferente
+4. Instale os drivers USB-Serial se necessário
+
+#### Erro de compilação
+1. Limpe o projeto: `platformio run --target clean`
+2. Exclua a pasta `.pio` e recompile
+3. Verifique se todas as dependências foram baixadas
+
+#### Upload falhou
+1. Pressione **RESET** na placa antes do upload
+2. Feche outros programas que podem estar usando a porta serial
+3. Tente reduzir a velocidade de upload no `platformio.ini`
+
+### 📋 Estrutura do Projeto
+```
+UnihikerK10/
+├── platformio.ini     # Configurações do PlatformIO
+├── src/
+│   └── main.cpp      # Código principal
+├── include/          # Headers customizados  
+├── lib/             # Bibliotecas locais
+└── README.md        # Este arquivo
+```
+
+## �📋 Funcionalidades Implementadas
 
 ### 🌈 1. LEDs RGB (Modo 1)
 - **Funcionalidade**: Controle completo dos 3 LEDs RGB integrados
@@ -268,9 +383,9 @@ bool tempHumiSensorAvailable = false;  // Status AHT20
 - `handleButtons()` - Processamento dos botões
 - `demonstrate...()` - Funções de demonstração para cada modo
 
-## 🚀 Compilação e Upload
+## 🚀 Compilação Rápida
 
-### Usando PlatformIO
+### Comandos Básicos
 ```bash
 # Compilar
 platformio run
@@ -282,9 +397,11 @@ platformio run --target upload
 platformio run --target clean
 ```
 
-### Usando VS Code com PlatformIO
-1. Usar a task **"PlatformIO Build"** para compilar
-2. Usar a task **"Build and Upload UNIHIKER K10 Demo"** para upload
+### Tasks do VSCode
+- **"PlatformIO Build"** - Compilar projeto
+- **"Build and Upload UNIHIKER K10 Demo"** - Upload completo
+
+> 💡 **Para instruções detalhadas de instalação e configuração**, consulte a seção [Como Baixar e Executar o Projeto](#-como-baixar-e-executar-o-projeto) no início deste README.
 
 ## 📊 Uso de Memória
 - **RAM**: 23.2% (76,028 bytes / 327,680 bytes)
