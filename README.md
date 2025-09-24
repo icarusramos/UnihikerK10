@@ -1,11 +1,21 @@
 # UNIHIKER K10 - Demo Completo
 
-Este é um projeto completo de demonstração para o **UNIHIKER K10**, implementando todas as funcionalidades disponíveis no dispositivo com exemplos práticos e interativos.
+Este é um projeto completo de demonstração para o **UNIHIKER K10**, implementando todas## 📋 Funcionalidades Implementadas
+*Código desenvolvido em desenvolvimento assistido pelo GitHub Copilot usando Claude Sonnet 4 da Anthropic*
+
 
 ## �️ Como Baixar e Executar o Projeto
 
 ### Pré-requisitos
-- **VSCode** instalado
+- **VSCode** i#### 💡 Sensor de Luz LTR303 (Nativo)
+- **Classe**: `Adafruit_LTR303`
+- **Funções principais**:
+  - `ltr.begin()` - Inicializar sensor
+  - `ltr.setGain(LTR3XX_GAIN_1)` - Configurar ganho
+  - `ltr.setIntegrationTime(LTR3XX_INTEGTIME_50)` - Tempo de integração
+  - `ltr.setMeasurementRate(LTR3XX_MEASRATE_50)` - Taxa de medição
+  - `ltr.newDataAvailable()` - Verificar novos dados
+  - `ltr.readBothChannels(visible_plus_ir, infrared)` - Ler canais de luz visível e infravermelha
 - **PlatformIO Extension** instalada no VSCode
 - **UNIHIKER K10** conectado via USB
 - **Git** instalado (opcional, para clonar o repositório)
@@ -131,11 +141,13 @@ UnihikerK10/
   - 7 cores pré-definidas (Vermelho, Verde, Azul, Amarelo, Magenta, Ciano, Branco)
   - Efeito arco-íris rotativo
   - **Auto-ajuste de brilho** baseado no sensor de luz real
-  - Controle por botões (A = trocar cor, B = piscar)
+  - **Interface visual otimizada** sem flicker
+  - Controle por botões (A = trocar cor, B = piscar)ades disponíveis no dispositivo com exemplos práticos e interativos.
+
 
 ### 📊 2. Sensores (Modo 2)
 - **Funcionalidade**: Leitura e exibição de todos os sensores disponíveis
-- **Bibliotecas**: `unihiker_k10.h`, `Adafruit_LTR329_LTR303.h`, `DFRobot_AHT20.h`
+- **Bibliotecas**: `unihiker_k10.h`, `Adafruit_LTR329_LTR303.h`, `AHT20.h` (biblioteca nativa)
 - **Sensores implementados**:
   
   **🏃 Acelerômetro** (Nativo):
@@ -147,12 +159,13 @@ UnihikerK10/
   - `k10.readMICData()` - Dados do microfone
   
   **🌡️ Temperatura e Umidade** (Sensor Nativo AHT20):
-  - `aht20.getTemperature_C()` - Temperatura real em Celsius
-  - `aht20.getHumidity_RH()` - Umidade relativa real
+  - `aht20.getData(AHT20::eAHT20TempC)` - Temperatura real em Celsius
+  - `aht20.getData(AHT20::eAHT20HumiRH)` - Umidade relativa real
   - **Status**: Mostra "(AHT20)" para leituras reais ou "(sim)" para simulação
   
   **💡 Sensor de Luz** (Sensor Nativo LTR303):
-  - `ltr.readBothChannels()` - Leitura real de luz visível + infravermelha
+  - `ltr.readBothChannels(visible_plus_ir, infrared)` - Leitura real de luz visível + infravermelha
+  - `ltr.newDataAvailable()` - Verificar se há dados novos disponíveis
   - Range dinâmico auto-calibrável (min/max)
   - Porcentagem de luminosidade (0-100%)
   - **Status**: Mostra "85% (1456)" para leituras reais ou "2048 (sim)" para simulação
@@ -178,60 +191,79 @@ UnihikerK10/
   - **Alertas visuais** para diferentes tipos de detecção
 
 ### 🔊 4. Som/Áudio (Modo 4)
-- **Funcionalidade**: Sistema de áudio com reconhecimento de voz e feedback visual
-- **Bibliotecas**: `asr.h` (Automatic Speech Recognition), `unihiker_k10.h`
+- **Funcionalidade**: Sistema de equalizador visual e reprodução de áudio
+- **Bibliotecas**: `Music.h` (biblioteca nativa K10), `unihiker_k10.h`
 - **Funções principais**:
-  - `asr.asrInit(CONTINUOUS, CN_MODE, 6000)` - Inicializar ASR
-  - `asr.addASRCommand(id, comando)` - Adicionar comando
-  - `asr.isWakeUp()` - Verificar se está ativo
-  - `asr.isDetectCmdID(id)` - Detectar comando específico
-  - `k10.readMICData()` - Ler dados reais do microfone
-  - `playTone(frequencia, duracao)` - Feedback visual sincronizado
-- **Comandos de voz**:
-  - "Jarvis" - Despertar o sistema
-  - "Teste um" - Ligar LEDs
-  - "Teste dois" - Desligar LEDs
+  - `music.playMusic(RINGTONE)` - Reproduzir toque/campainha integrada
+  - `music.stopPlayTone()` - Parar reprodução
+  - `k10.readMICData()` - Ler dados reais do microfone para equalizador
+- **Características do sistema**:
+  - **Equalizador Visual**: 30 segundos de demonstração interativa
+  - **LEDs reativos ao áudio**: Verde (baixo), Amarelo (médio), Vermelho (alto)
+  - **Barra de equalização**: Visualização em tempo real "[===#### **]"
+  - **Campainha final**: Toque automático após equalizador
 - **Recursos**:
-  - Barra visual de volume do microfone (dados reais)
-  - Feedback visual avançado com padrões de LEDs
-  - Sons simulados com diferentes frequências e padrões
-  - Sincronização visual-sonora realista
+  - **Barra visual de volume do microfone** (dados reais em tempo real)
+  - **Sistema de LEDs inteligente** com 3 níveis de intensidade
+  - **Efeito strobe** ocasional em volumes altos
+  - **Toque de campainha real** usando hardware nativo K10
+  - **Reset automático** para loop contínuo de demonstração
 
 ### 📶 5. WiFi (Modo 5)
-- **Funcionalidade**: Conectividade WiFi em modo Access Point
+- **Funcionalidade**: Conectividade WiFi para rede local
 - **Biblioteca**: `WiFi.h`
 - **Funções principais**:
-  - `WiFi.softAP(ssid, senha)` - Criar Access Point
-  - `WiFi.softAPIP()` - Obter IP do AP
-  - `WiFi.softAPgetStationNum()` - Contar clientes conectados
+  - `WiFi.mode(WIFI_STA)` - Configurar modo Station
+  - `WiFi.begin(ssid, senha)` - Conectar a rede WiFi
+  - `WiFi.localIP()` - Obter IP local atribuído
+  - `WiFi.RSSI()` - Verificar intensidade do sinal
+  - `WiFi.scanNetworks()` - Escanear redes disponíveis
+  - `WiFi.macAddress()` - Obter endereço MAC
 - **Configurações**:
-  - **SSID**: K10-Demo
-  - **Senha**: 12345678
-  - **Modo**: Access Point
+  - **SSID/Senha**: Configuráveis no código (variáveis `wifi_ssid` e `wifi_password`)
+  - **Modo**: Station (conecta a rede existente)
+  - **Reconexão automática**: Sistema inteligente de tentativas
 - **Recursos**:
-  - Monitoramento de clientes conectados
-  - Indicadores visuais de atividade TX/RX
-  - Informações de rede em tempo real
+  - **Interface visual aprimorada** - sem flicker ou resíduos de tela
+  - **Limpeza de tela otimizada** - transições suaves entre modos
+  - **Monitoramento de sinal RSSI** com indicadores coloridos
+  - **Scan automático de redes** a cada 20 segundos quando desconectado
+  - **LEDs reativos ao sinal**: Verde (forte), Amarelo (médio), Vermelho (fraco)
+  - **Informações completas**: IP, MAC, SSID, força do sinal
+  - **Controles interativos**: Botão A (reconectar), Botão B (scan redes)
 
 ### 📱 6. Bluetooth (Modo 6) - Via Serial
 - **Funcionalidade**: Comunicação de dados via Serial (debug)
 - **Recursos**:
+  - **Interface visual aprimorada** sem flicker
+  - **Transições suaves** entre informações
   - Transmissão de dados dos sensores reais
-  - Interface visual de status
+  - Interface visual de status otimizada
   - Simulação de comunicação para desenvolvimento
 
 ### 💾 7. Cartão SD (Modo 7)
-- **Funcionalidade**: Armazenamento em cartão SD e memória interna
-- **Bibliotecas**: `SD.h`, `LittleFS.h`, `FS.h`
+- **Funcionalidade**: Sistema completo de armazenamento em cartão SD
+- **Bibliotecas**: `SD.h`, `FS.h`
 - **Funções principais**:
   - `SD.begin()` - Inicializar cartão SD
-  - `SD.open(arquivo, modo)` - Abrir arquivo
-  - `LittleFS.begin()` - Inicializar sistema de arquivos interno
+  - `SD.open(arquivo, modo)` - Abrir arquivo (FILE_READ, FILE_WRITE, FILE_APPEND)
+  - `SD.remove(arquivo)` - Deletar arquivo
+  - **Funções customizadas implementadas**:
+    - `writeToSD(filename, data)` - Escrever dados em arquivo
+    - `readFromSD(filename)` - Ler conteúdo de arquivo
+    - `appendToSD(filename, data)` - Anexar dados a arquivo existente
+    - `deleteFromSD(filename)` - Deletar arquivo com logs
+    - `listSDFiles()` - Listar todos os arquivos e pastas
+    - `sdFileExists(filename)` - Verificar se arquivo existe
+    - `getSDFileSize(filename)` - Obter tamanho do arquivo
 - **Recursos**:
-  - Teste de escrita e leitura
-  - Informações de capacidade e uso
-  - Log automático de eventos
-  - Fallback para LittleFS se SD falhar
+  - **Display otimizado** - eliminado flicker na interface
+  - **Transições suaves** entre informações de status
+  - **Teste automático** de escrita/leitura a cada 2 segundos
+  - **Sistema de numeração sequencial** para arquivos de teste
+  - **Informações detalhadas** - tamanho de arquivo, status de operações
+  - **Reconexão automática** - tentativa de reconectar SD a cada 5s
+  - **Logs detalhados** no Serial Monitor para debug
 
 ### 🎮 8. Botões (Modo 8)
 - **Funcionalidade**: Interface com botões físicos
@@ -241,10 +273,12 @@ UnihikerK10/
   - `k10.buttonB->isPressed()` - Status do botão B  
   - `k10.buttonAB->isPressed()` - Status de A+B simultaneamente
 - **Recursos**:
-  - Feedback visual em tempo real
+  - **Interface visual refinada** - sem flicker durante interações
+  - **Feedback visual em tempo real** otimizado
   - Diferentes cores para cada botão
   - Sistema de debounce (200ms)
   - Controle de LEDs baseado nos botões
+  - **Limpeza de tela inteligente** ao entrar no modo
 
 ### 🎨 9. Animação (Modo 9)
 - **Funcionalidade**: Animações gráficas interativas
@@ -253,6 +287,9 @@ UnihikerK10/
   - `k10.canvas->canvasCircle()` - Desenhar círculos
   - `k10.canvas->updateCanvas()` - Atualizar display
 - **Recursos**:
+  - **Fundo azul escuro personalizado** (0x000033)
+  - **Sistema de animação otimizado** sem flicker
+  - **Limpeza de tela única** ao iniciar o modo
   - Bola animada com física de colisão
   - Efeito de rastro (trail effect)
   - Controle de velocidade (Botão A)
@@ -262,12 +299,15 @@ UnihikerK10/
 ### 🎯 10. Demo Completo (Modo 0)
 - **Funcionalidade**: Demonstração automática de todas as funcionalidades
 - **Recursos**:
-  - Ciclo automático entre funcionalidades (3s cada)
-  - LEDs arco-íris
+  - **Interface visual completamente otimizada** sem flicker
+  - **Transições suaves** entre diferentes informações
+  - Ciclo automático entre funcionalidades (2s cada)
+  - LEDs arco-íris reativos aos sensores
   - Dados de sensores em tempo real
   - Gravação automática no SD
   - Transmissão simulada via Bluetooth/Serial
   - Feedback sonoro
+  - **Rotação inteligente** de informações
 
 ## 🎮 Como Usar
 
@@ -306,7 +346,6 @@ lib_deps =
     WiFi
     FS
     SD
-    LittleFS
     AIRecognition
     asr
 ```
@@ -337,11 +376,14 @@ lib_deps =
   - `ltr.readBothChannels(visible, infrared)` - Ler canais de luz
 
 #### 🌡️ Sensor AHT20 (Nativo)
-- **Classe**: `DFRobot_AHT20`
+- **Classe**: `AHT20` (biblioteca nativa do UNIHIKER K10)
 - **Funções principais**:
-  - `aht20.begin()` - Inicializar sensor
-  - `aht20.getTemperature_C()` - Temperatura em Celsius
-  - `aht20.getHumidity_RH()` - Umidade relativa (%)
+  - `aht20.getData(AHT20::eAHT20TempC)` - Temperatura em Celsius
+  - `aht20.getData(AHT20::eAHT20HumiRH)` - Umidade relativa (%)
+- **Enumerações utilizadas**:
+  - `AHT20::eAHT20TempC` - Constante para leitura de temperatura
+  - `AHT20::eAHT20HumiRH` - Constante para leitura de umidade
+- **Observação**: Não requer inicialização explícita (automática)
 
 #### �🎤 asr.h (Reconhecimento de Voz)
 - **Classe**: `ASR`
@@ -359,6 +401,10 @@ ASR asr;                    // Reconhecimento de voz
 AIRecognition ai;           // Inteligência artificial
 int currentMode = 0;        // Modo atual (0-10)
 bool modeChanged = true;    // Flag de mudança de modo
+
+// Sistema de controle visual otimizado
+static bool screenCleared;  // Flag local em cada função demonstrate*()
+                            // Controla limpeza única da tela por modo
 ```
 
 ### Dados dos Sensores
@@ -421,10 +467,18 @@ platformio run --target clean
 - **Botões**: A, B e A+B (combinado)
 - **Sensores**: Acelerômetro interno, microfone
 - **Conectividade**: WiFi 2.4GHz
-- **Armazenamento**: SD Card + LittleFS interno
+- **Armazenamento**: SD Card externo
 - **Display**: TFT colorido com canvas
 
 ## 🎯 Características Especiais
+
+### ✨ Sistema Visual Avançado
+- **Eliminação completa de flicker**: Implementado padrão de limpeza de tela otimizado
+- **Gestão inteligente de tela**: Cada modo limpa a tela apenas uma vez ao entrar
+- **Flag de controle `screenCleared`**: Sistema que previne redesenhos desnecessários
+- **Transições suaves**: Sem resíduos visuais entre diferentes modos
+- **Performance otimizada**: Redução significativa de calls de `canvasClear()`
+- **Compatibilidade com diferentes cores de fundo**: Suporte a fundos personalizados por modo
 
 ### Sistema de Sensores Nativos Reais
 - **AHT20**: Sensor de temperatura e umidade de precisão
@@ -439,13 +493,17 @@ platformio run --target clean
 - Feedback visual e sonoro para todas as ações
 
 ### Gestão de Recursos
+- **Sistema visual otimizado**: Limpeza de tela única por modo usando flag `screenCleared`
+- **Redução de flicker**: Eliminação de redesenhos desnecessários da interface
+- **Performance melhorada**: Menos calls de `canvasClear()` e operações de canvas
 - Leitura otimizada de sensores (1Hz)
-- Debounce de botões (200ms)
+- Debounce de botões (300ms)
 - Gestão automática de memória canvas
+- **Reset inteligente**: Flag `screenCleared` resetada automaticamente ao trocar de modo
 
 ### Compatibilidade
 - Suporta cartões SD de diferentes tamanhos
-- Fallback automático para LittleFS
+- Detecção automática de presença do cartão SD
 - Simulação de funcionalidades não disponíveis
 
 ## 🐛 Troubleshooting
