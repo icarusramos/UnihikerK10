@@ -6,7 +6,6 @@
 #include <WiFi.h>
 #include <SD.h>
 #include <FS.h>
-#include <LittleFS.h>
 
 UNIHIKER_K10 k10;
 ASR asr;
@@ -25,6 +24,15 @@ unsigned long lastSensorRead = 0;
 bool sdCardAvailable = false;
 bool wifiConnected = false;
 bool bluetoothEnabled = false;
+
+// Configurações WiFi - CONFIGURE SUAS CREDENCIAIS AQUI
+String wifi_ssid = "";      // <- Coloque o nome da sua rede WiFi aqui
+String wifi_password = ""; // <- Coloque a senha da sua rede WiFi aqui
+unsigned long wifiLastAttempt = 0;
+int wifiRetryCount = 0;
+String wifiStatus = "Desconectado";
+String connectedSSID = "";
+String localIP = "";
 
 // Dados dos sensores
 float temperature = 0.0;
@@ -75,6 +83,7 @@ void demonstrateLEDs();
 void demonstrateSensors();
 void demonstrateCamera();
 void demonstrateAudio();
+void demonstrateAudio();
 void demonstrateWiFi();
 void demonstrateBluetooth();
 void demonstrateSDCard();
@@ -92,12 +101,30 @@ void playTone(int frequency, int duration);
 bool writeToSDCard(String data);
 String readFromSDCard();
 void displayOnScreen(String text, int line = 0, uint32_t color = 0xFFFFFF);
+bool initScreenOnce(uint32_t backgroundColor = 0x000000);
+
+// Declarações de funções SD nativas
+bool writeToSD(String filename, String data);
+String readFromSD(String filename);
+bool appendToSD(String filename, String data);
+bool deleteFromSD(String filename);
+void listSDFiles();
+bool sdFileExists(String filename);
+size_t getSDFileSize(String filename);
+
+// Declarações WiFi
+void initializeWiFi();
+void checkWiFiConnection();
+void connectToWiFi();
+void scanWiFiNetworks();
+String getWiFiStatusText();
+void showWiFiInfo();
 
 void setup() {
     Serial.begin(115200);
     delay(3000); // Aguardar estabilização mais longa
     
-    Serial.println("=== UNIHIKER K10 DEMO COMPLETO ===");
+    Serial.println(" UNIHIKER K10 DEMO COMPLETO ");
     
     // Inicializar K10 básico primeiro
     Serial.println("Inicializando K10...");
@@ -137,6 +164,12 @@ void setup() {
 void loop() {
     unsigned long currentTime = millis();
     
+    // Verificar conexão WiFi periodicamente
+    if (currentTime - wifiLastAttempt > 30000) { // A cada 30 segundos
+        checkWiFiConnection();
+        wifiLastAttempt = currentTime;
+    }
+    
     // Ler sensores periodicamente
     if (currentTime - lastSensorRead > 1000) {
         readAllSensors();
@@ -156,6 +189,10 @@ void loop() {
             break;
             
         case 1: // LEDs RGB
+            if (modeChanged) {
+                // Reset flag para próxima entrada no modo
+                modeChanged = false;
+            }
             demonstrateLEDs();
             break;
             
@@ -199,11 +236,25 @@ void loop() {
     delay(50);
 }
 
-// === FUNÇÕES AUXILIARES BÁSICAS ===
+//  FUNÇÕES AUXILIARES BÁSICAS 
 
 void displayOnScreen(String text, int line, uint32_t color) {
     k10.canvas->canvasText(text, line, color);
     k10.canvas->updateCanvas();
+}
+
+// Função para inicializar tela apenas uma vez por modo
+bool initScreenOnce(uint32_t backgroundColor) {
+    static int lastMode = -1;
+    
+    // Se mudou de modo, limpa a tela UMA VEZ
+    if (modeChanged || lastMode != currentMode) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(backgroundColor);
+        lastMode = currentMode;
+        return true; // Indica que a tela foi limpa
+    }
+    return false; // Indica que a tela já estava inicializada
 }
 
 void setAllLeds(uint32_t color) {
@@ -242,6 +293,23 @@ void initializeSystems() {
             sdCardAvailable = true;
             displayOnScreen("SD Card: OK", 5, 0x00FF00);
             Serial.println("SD Card inicializado com sucesso");
+            
+            // Testar funcionalidades básicas
+            Serial.println(" Testando SD Card ");
+            if (writeToSD("/test_k10.txt", "Teste SD K10 funcionando!")) {
+                Serial.println("Teste de escrita: OK");
+                String content = readFromSD("/test_k10.txt");
+                if (content.length() > 0) {
+                    Serial.println("Teste de leitura: OK - " + content);
+                } else {
+                    Serial.println("Teste de leitura: FALHOU");
+                }
+            } else {
+                Serial.println("Teste de escrita: FALHOU");
+            }
+            
+            // Listar arquivos no SD
+            listSDFiles();
         } else {
             sdCardAvailable = false;
             displayOnScreen("SD Card: FALHOU", 5, 0xFF0000);
@@ -254,25 +322,8 @@ void initializeSystems() {
     }
     delay(500);
     
-    // LittleFS (opcional)
-    displayOnScreen("Inicializando LittleFS...", 6, 0xFFFF00);
-    delay(500);
-    try {
-        if (LittleFS.begin(true)) {
-            displayOnScreen("LittleFS: OK", 7, 0x00FF00);
-            Serial.println("LittleFS inicializado com sucesso");
-        } else {
-            displayOnScreen("LittleFS: FALHOU", 7, 0xFF0000);
-            Serial.println("LittleFS não disponível");
-        }
-    } catch (...) {
-        displayOnScreen("LittleFS: ERRO", 7, 0xFF0000);
-        Serial.println("Erro ao inicializar LittleFS");
-    }
-    delay(500);
-    
     // Sensores (opcionais)
-    displayOnScreen("Inicializando sensores...", 8, 0xFFFF00);
+    displayOnScreen("Inicializando sensores...", 6, 0xFFFF00);
     delay(500);
     
     // Sensor de luz LTR303
@@ -306,7 +357,18 @@ void initializeSystems() {
         Serial.println("Erro ao inicializar sensor AHT20");
     }
     
-    displayOnScreen("Sensores: OK", 9, 0x00FF00);
+    displayOnScreen("Sensores: OK", 7, 0x00FF00);
+    delay(500);
+    
+    // Inicializar WiFi
+    displayOnScreen("Inicializando WiFi...", 8, 0xFFFF00);
+    delay(500);
+    
+    Serial.println("Iniciando conexão WiFi...");
+    Serial.println("SSID configurado: " + wifi_ssid);
+    
+    initializeWiFi();
+    displayOnScreen("WiFi: " + wifiStatus, 9, wifiConnected ? 0x00FF00 : 0xFF8800);
     delay(500);
     
     Serial.println("Sistemas inicializados com segurança");
@@ -323,8 +385,8 @@ void showWelcomeScreen() {
     
     // Indicadores de status
     displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 10, sdCardAvailable ? 0x00FF00 : 0xFF0000);
-    displayOnScreen("LFS: " + String(LittleFS.begin() ? "OK" : "NO"), 11, 0x00FF00);
-    displayOnScreen("Carregando...", 13, 0x888888);
+    displayOnScreen("WiFi: " + wifiStatus, 11, wifiConnected ? 0x00FF00 : 0xFF8800);
+    displayOnScreen("Carregando...", 12, 0x888888);
     
     // Animação de LEDs durante carregamento
     for (int i = 0; i < 3; i++) {
@@ -340,7 +402,7 @@ void showMainMenu() {
     k10.canvas->canvasClear();
     k10.setScreenBackground(0x000000);
     
-    displayOnScreen("=== MENU PRINCIPAL ===", 1, 0x00FFFF);
+    displayOnScreen(" MENU PRINCIPAL ", 1, 0x00FFFF);
     
     for (int i = 0; i < 10; i++) {
         displayOnScreen(menuItems[i], i + 2, 0xFFFFFF);
@@ -378,6 +440,26 @@ void handleModeSpecificActionA() {
         case 1: // LEDs - mudar cor
             ledColorIndex = (ledColorIndex + 1) % 7;
             break;
+        case 5: // WiFi - tentar reconectar
+            if (!wifiConnected) {
+                connectToWiFi();
+            } else {
+                showWiFiInfo(); // Mostrar info completa no serial
+            }
+            break;
+        case 7: // SD Card - criar arquivo de teste
+            if (sdCardAvailable) {
+                String filename = "/teste_" + String(millis()) + ".txt";
+                String data = "Arquivo criado em: " + String(millis()) + "\nTeste do UNIHIKER K10\nFunções nativas de SD!";
+                if (writeToSD(filename, data)) {
+                    Serial.println("Arquivo de teste criado: " + filename);
+                } else {
+                    Serial.println("Erro ao criar arquivo de teste");
+                }
+            } else {
+                Serial.println("SD Card não disponível");
+            }
+            break;
         case 9: // Animação - mudar velocidade
             ballSpeedX = ballSpeedX > 0 ? ballSpeedX + 1 : ballSpeedX - 1;
             break;
@@ -388,6 +470,16 @@ void handleModeSpecificActionB() {
     switch (currentMode) {
         case 1: // LEDs - piscar
             flashAllLeds();
+            break;
+        case 5: // WiFi - fazer scan de redes
+            scanWiFiNetworks();
+            break;
+        case 7: // SD Card - listar arquivos
+            if (sdCardAvailable) {
+                listSDFiles();
+            } else {
+                Serial.println("SD Card não disponível para listagem");
+            }
             break;
         case 9: // Animação - inverter direção
             ballSpeedX = -ballSpeedX;
@@ -475,13 +567,26 @@ void readAllSensors() {
 }
 
 void demonstrateLEDs() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
-    
+    static bool contentDrawn = false;
     static unsigned long lastUpdate = 0;
     static int state = 0;
     
+    // Limpa tela apenas uma vez
+    if (initScreenOnce()) {
+        contentDrawn = false;
+    }
+    
+    // Desenhar conteúdo estático apenas uma vez
+    if (!contentDrawn) {
+        displayOnScreen(" DEMO LEDs ", 1, 0x00FFFF);
+        displayOnScreen("Cores automaticas", 3, 0xFFFFFF);
+        displayOnScreen("A: Mudar modo", 11, 0x888888);
+        displayOnScreen("B: Flash todos", 12, 0x888888);
+        displayOnScreen("A+B: Proximo demo", 13, 0x888888);
+        contentDrawn = true;
+    }
+    
+    // Atualizar apenas o que muda
     if (millis() - lastUpdate > 500) {
         lastUpdate = millis();
         
@@ -496,35 +601,44 @@ void demonstrateLEDs() {
             case 7: setAllLedsOff(); break; // Desligado
         }
         state++;
+        
+        // Atualizar apenas a linha do estado
+        displayOnScreen("Estado: " + String(state % 8), 5, 0xFFFF00);
     }
-    
-    displayOnScreen("=== DEMO LEDs ===", 1, 0x00FFFF);
-    displayOnScreen("Cores automaticas", 3, 0xFFFFFF);
-    displayOnScreen("Estado: " + String(state % 8), 5, 0xFFFF00);
-    displayOnScreen("A: Mudar modo", 11, 0x888888);
-    displayOnScreen("B: Flash todos", 12, 0x888888);
-    displayOnScreen("A+B: Proximo demo", 13, 0x888888);
 }
 
 void demonstrateSensors() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    static bool contentDrawn = false;
+    static unsigned long lastUpdate = 0;
     
-    readAllSensors();
+    // Limpa tela apenas uma vez
+    if (initScreenOnce()) {
+        contentDrawn = false;
+    }
     
-    displayOnScreen("=== SENSORES ===", 1, 0x00FFFF);
-    displayOnScreen("Temperatura:", 3, 0xFFFFFF);
-    displayOnScreen(String(temperature, 1) + "°C", 4, 0x00FF00);
-    displayOnScreen("Umidade:", 5, 0xFFFFFF);
-    displayOnScreen(String(humidity, 1) + "%", 6, 0x00FF00);
-    displayOnScreen("Luminosidade:", 7, 0xFFFFFF);
-    displayOnScreen(String(lightPercent) + "%", 8, 0x00FF00);
-    displayOnScreen("Acelerometro:", 9, 0xFFFFFF);
-    displayOnScreen("X:" + String(accelX, 1), 10, 0x888888);
-    displayOnScreen("Y:" + String(accelY, 1), 11, 0x888888);
-    displayOnScreen("Z:" + String(accelZ, 1), 12, 0x888888);
-    displayOnScreen("Mic:" + String(micData), 13, 0x888888);
+    // Desenhar labels estáticos apenas uma vez
+    if (!contentDrawn) {
+        displayOnScreen(" SENSORES ", 1, 0x00FFFF);
+        displayOnScreen("Temperatura:", 3, 0xFFFFFF);
+        displayOnScreen("Umidade:", 5, 0xFFFFFF);
+        displayOnScreen("Luminosidade:", 7, 0xFFFFFF);
+        displayOnScreen("Acelerometro:", 9, 0xFFFFFF);
+        contentDrawn = true;
+    }
+    
+    // Atualizar valores a cada 500ms
+    if (millis() - lastUpdate > 500) {
+        lastUpdate = millis();
+        readAllSensors();
+        
+        displayOnScreen(String(temperature, 1) + "°C", 4, 0x00FF00);
+        displayOnScreen(String(humidity, 1) + "%", 6, 0x00FF00);
+        displayOnScreen(String(lightPercent) + "%", 8, 0x00FF00);
+        displayOnScreen("X:" + String(accelX, 1), 10, 0x888888);
+        displayOnScreen("Y:" + String(accelY, 1), 11, 0x888888);
+        displayOnScreen("Z:" + String(accelZ, 1), 12, 0x888888);
+        displayOnScreen("Mic:" + String(micData), 13, 0x888888);
+    }
 }
 
 void demonstrateScreen() {
@@ -542,7 +656,7 @@ void demonstrateScreen() {
     uint32_t bgColors[] = {0x000000, 0x001122, 0x112200, 0x220011, 0x002211, 0x110022, 0x221100};
     k10.setScreenBackground(bgColors[colorIndex % 7]);
     
-    displayOnScreen("=== DEMO TELA ===", 1, 0x00FFFF);
+    displayOnScreen(" DEMO TELA ", 1, 0x00FFFF);
     displayOnScreen("Cores de fundo", 3, 0xFFFFFF);
     displayOnScreen("automaticas", 4, 0xFFFFFF);
     
@@ -559,15 +673,27 @@ void demonstrateScreen() {
 }
 
 void demonstrateButtons() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
-    
+    static bool contentDrawn = false;
     static String lastAction = "Nenhuma";
     static unsigned long lastTime = 0;
+    static String displayedAction = "";
     
-    displayOnScreen("=== DEMO BOTOES ===", 1, 0x00FFFF);
-    displayOnScreen("Pressione botoes:", 3, 0xFFFFFF);
+    // Limpa tela apenas uma vez
+    if (initScreenOnce()) {
+        contentDrawn = false;
+        displayedAction = "";
+    }
+    
+    // Desenhar conteúdo estático apenas uma vez
+    if (!contentDrawn) {
+        displayOnScreen(" DEMO BOTOES ", 1, 0x00FFFF);
+        displayOnScreen("Pressione botoes:", 3, 0xFFFFFF);
+        displayOnScreen("Ultima acao:", 5, 0xFFFF00);
+        displayOnScreen("A = LED Vermelho", 9, 0x888888);
+        displayOnScreen("B = LED Verde", 10, 0x888888);
+        displayOnScreen("A+B = Proximo modo", 12, 0x888888);
+        contentDrawn = true;
+    }
     
     if (k10.buttonA->isPressed() && millis() - lastTime > 300) {
         lastAction = "Botao A";
@@ -584,14 +710,19 @@ void demonstrateButtons() {
         setAllLedsOff();
     }
     
-    displayOnScreen("Ultima acao:", 5, 0xFFFF00);
-    displayOnScreen(lastAction, 6, 0x00FF00);
-    displayOnScreen("A = LED Vermelho", 9, 0x888888);
-    displayOnScreen("B = LED Verde", 10, 0x888888);
-    displayOnScreen("A+B = Proximo modo", 12, 0x888888);
+    // Atualizar apenas se mudou
+    if (displayedAction != lastAction) {
+        displayOnScreen(lastAction, 6, 0x00FF00);
+        displayedAction = lastAction;
+    }
     
-    unsigned long elapsed = (millis() - lastTime) / 1000;
-    displayOnScreen("Desde: " + String(elapsed) + "s", 8, 0x444444);
+    // Atualizar tempo a cada segundo
+    static unsigned long lastTimeUpdate = 0;
+    if (millis() - lastTimeUpdate > 1000) {
+        lastTimeUpdate = millis();
+        unsigned long elapsed = (millis() - lastTime) / 1000;
+        displayOnScreen("Desde: " + String(elapsed) + "s", 8, 0x444444);
+    }
 }
 
 void demonstrateAccelerometer() {
@@ -613,7 +744,7 @@ void demonstrateAccelerometer() {
     uint32_t color = (redLevel << 16) | (greenLevel << 8) | blueLevel;
     setAllLeds(color);
     
-    displayOnScreen("=== ACELEROMETRO ===", 1, 0x00FFFF);
+    displayOnScreen(" ACELEROMETRO ", 1, 0x00FFFF);
     displayOnScreen("Incline o dispositivo", 2, 0xFFFFFF);
     displayOnScreen("LEDs mudam com", 3, 0xFFFFFF);
     displayOnScreen("a inclinacao", 4, 0xFFFFFF);
@@ -645,7 +776,7 @@ void demonstrateLight() {
     uint32_t color = (brightness << 16) | (brightness << 8) | brightness; // Branco
     setAllLeds(color);
     
-    displayOnScreen("=== SENSOR DE LUZ ===", 1, 0x00FFFF);
+    displayOnScreen(" SENSOR DE LUZ ", 1, 0x00FFFF);
     displayOnScreen("LEDs ajustam", 2, 0xFFFFFF);
     displayOnScreen("com luz ambiente", 3, 0xFFFFFF);
     
@@ -678,7 +809,7 @@ void demonstrateSound() {
     uint32_t color = (soundLevel << 8); // Verde baseado no som
     setAllLeds(color);
     
-    displayOnScreen("=== DEMO SOM ===", 1, 0x00FFFF);
+    displayOnScreen(" DEMO SOM ", 1, 0x00FFFF);
     displayOnScreen("Faca barulho!", 2, 0xFFFFFF);
     displayOnScreen("LEDs reagem ao som", 3, 0xFFFFFF);
     
@@ -708,6 +839,8 @@ void demonstrateAnimation() {
     static float ballX = 100, ballY = 50;
     static unsigned long lastUpdate = 0;
     
+    initScreenOnce(0x000033); // Limpa tela apenas uma vez (fundo azul escuro)
+    
     if (millis() - lastUpdate > 50) {
         lastUpdate = millis();
         
@@ -720,21 +853,23 @@ void demonstrateAnimation() {
         
         ballX = constrain(ballX, 0, 230);
         ballY = constrain(ballY, 20, 100);
+        
+        // Atualizar apenas o conteúdo necessário
+        displayOnScreen(" ANIMACAO ", 1, 0x00FFFF);
+        displayOnScreen("Bola rebatendo", 2, 0xFFFFFF);
+        
+        // Limpar linha anterior da bola (usando espaços)
+        for (int i = 3; i <= 12; i++) {
+            displayOnScreen("                    ", i, 0x000000);
+        }
+        
+        // Desenhar "bola" com texto
+        int row = (int)(ballY / 10) + 3;
+        displayOnScreen("O", row, 0xFFFF00);
+        
+        displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 13, 0x888888);
+        displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 14, 0x888888);
     }
-    
-    // Limpar tela completamente a cada frame
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000033);
-    
-    displayOnScreen("=== ANIMACAO ===", 1, 0x00FFFF);
-    displayOnScreen("Bola rebatendo", 2, 0xFFFFFF);
-    
-    // Desenhar "bola" com texto
-    int row = (int)(ballY / 10) + 3;
-    displayOnScreen("O", row, 0xFFFF00);
-    
-    displayOnScreen("Pos: " + String((int)ballX) + "," + String((int)ballY), 13, 0x888888);
-    displayOnScreen("Vel: " + String(ballSpeedX) + "," + String(ballSpeedY), 14, 0x888888);
     
     // LEDs acompanham a bola
     int ledR = map(ballX, 0, 230, 0, 255);
@@ -744,13 +879,12 @@ void demonstrateAnimation() {
 }
 
 void demonstrateInteraction() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
+   initScreenOnce(); // Limpa tela apenas uma vez por modo
     k10.setScreenBackground(0x000000);
     
     readAllSensors();
     
-    displayOnScreen("=== INTERACAO ===", 1, 0x00FFFF);
+    displayOnScreen(" INTERACAO ", 1, 0x00FFFF);
     displayOnScreen("Multi-sensor demo", 2, 0xFFFFFF);
     
     // Combinar sensores para efeito
@@ -777,52 +911,241 @@ void demonstrateInteraction() {
 }
 
 void demonstrateAudio() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    static bool initialized = false;
+    static unsigned long startTime = 0;
+    static unsigned long lastScreenUpdate = 0;
+    static unsigned long lastLedUpdate = 0;
+    static unsigned long lastDebugUpdate = 0;
+    static bool equalizerFinished = false;
+    static bool soundPlayed = false;
     
-    displayOnScreen("=== AUDIO/ASR ===", 1, 0x00FFFF);
-    displayOnScreen("Funcionalidade", 3, 0xFFFFFF);
-    displayOnScreen("de reconhecimento", 4, 0xFFFFFF);
-    displayOnScreen("de voz nao", 5, 0xFFFFFF);
-    displayOnScreen("implementada nesta", 6, 0xFFFFFF);
-    displayOnScreen("demo basica", 7, 0xFFFFFF);
+    unsigned long currentTime = millis();
     
+    // Inicializar apenas uma vez - SEM piscar tela
+    if (!initialized) {
+        k10.canvas->canvasClear();
+        k10.setScreenBackground(0x000000);
+        
+        // Desenhar conteúdo estático UMA VEZ
+        displayOnScreen("=== EQUALIZADOR ===", 1, 0x00FFFF);
+        displayOnScreen("Faca som/musica!", 2, 0xFFFFFF);
+        displayOnScreen("LEDs reagem ao audio", 3, 0xFFFFFF);
+        displayOnScreen("30s de demonstracao", 4, 0xFFFF00);
+        displayOnScreen("Verde=Baixo Amar=Medio", 12, 0x888888);
+        displayOnScreen("Vermelho=Alto", 13, 0x888888);
+        
+        startTime = currentTime;
+        equalizerFinished = false;
+        soundPlayed = false;
+        initialized = true;
+        
+        Serial.println("=== EQUALIZADOR INICIADO ===");
+        Serial.println("Tempo inicial: " + String(startTime));
+    }
+    
+    unsigned long elapsed = currentTime - startTime;
+    unsigned long remaining = (elapsed < 30000) ? (30000 - elapsed) : 0;
+    
+    // Sempre ler sensores
     readAllSensors();
-    displayOnScreen("Nivel mic: " + String(micData), 9, 0x00FF00);
-    displayOnScreen("Use modo Som", 11, 0x888888);
-    displayOnScreen("para interacao", 12, 0x888888);
+    
+    // Debug no Serial a cada segundo
+    if (currentTime - lastDebugUpdate > 1000) {
+        Serial.printf("Tempo: %lus, Restante: %lus, MicData: %lu\n", 
+                     elapsed/1000, remaining/1000, micData);
+        lastDebugUpdate = currentTime;
+    }
+    
+    // Durante os 30 segundos - EQUALIZADOR ATIVO
+    if (!equalizerFinished && elapsed < 30000) {
+        
+        // Atualizar tela a cada 500ms
+        if (currentTime - lastScreenUpdate > 500) {
+            lastScreenUpdate = currentTime;
+            
+            // Mostrar dados dinâmicos
+            displayOnScreen("Nivel mic: " + String(micData) + "     ", 6, 0x00FF00);
+            displayOnScreen("Tempo: " + String(remaining / 1000) + "s     ", 8, 0xFFFF00);
+            
+            // Calcular e mostrar nível de áudio
+            int audioLevel = constrain(map(micData, 0, 15000, 0, 100), 0, 100);
+            displayOnScreen("Audio: " + String(audioLevel) + "%     ", 9, 0x00FFFF);
+            
+            // Barra visual do equalizador
+            String audioBar = "EQ: [";
+            int bars = audioLevel / 10;
+            for (int i = 0; i < 10; i++) {
+                if (i < bars) {
+                    if (i < 3) audioBar += "=";      // Verde
+                    else if (i < 7) audioBar += "#"; // Amarelo
+                    else audioBar += "*";            // Vermelho
+                } else {
+                    audioBar += " ";
+                }
+            }
+            audioBar += "]";
+            displayOnScreen(audioBar + "     ", 10, 0xFFFFFF);
+        }
+        
+        // Atualizar LEDs rapidamente
+        if (currentTime - lastLedUpdate > 100) {
+            lastLedUpdate = currentTime;
+            
+            int audioLevel = constrain(map(micData, 0, 15000, 0, 100), 0, 100);
+            uint32_t ledColor = 0x000000;
+            
+            if (audioLevel < 30) {
+                // Som baixo - Verde
+                int intensity = map(audioLevel, 0, 30, 50, 255);
+                ledColor = (0 << 16) | (intensity << 8) | (0);
+            } else if (audioLevel < 70) {
+                // Som médio - Amarelo/Laranja
+                int greenLevel = 255;
+                int redLevel = map(audioLevel, 30, 70, 0, 255);
+                ledColor = (redLevel << 16) | (greenLevel << 8) | (0);
+            } else {
+                // Som alto - Vermelho
+                int intensity = 255;
+                if (random(100) < 20) intensity = random(100, 255);
+                ledColor = (intensity << 16) | (0 << 8) | (0);
+            }
+            
+            // Efeito strobe ocasional
+            if (audioLevel > 20 && random(100) < 15) {
+                ledColor = 0xFFFFFF;
+            }
+            
+            setAllLeds(ledColor);
+        }
+    }
+    
+    // APÓS 30 SEGUNDOS - FINALIZAR E TOCAR BUZZER
+    else if (!equalizerFinished && elapsed >= 30000) {
+        equalizerFinished = true;
+        setAllLedsOff();
+        Serial.println("=== 30 SEGUNDOS COMPLETADOS! ===");
+        
+        // Limpar área da tela para mensagem final
+        for(int i = 6; i <= 11; i++) {
+            displayOnScreen("                    ", i, 0x000000);
+        }
+        
+        displayOnScreen("Equalizador concluido!", 7, 0x00FF00);
+        displayOnScreen("Tocando campainha...", 8, 0xFFFF00);
+    }
+    
+    // TOCAR CAMPAINHA
+    if (equalizerFinished && !soundPlayed) {
+        soundPlayed = true;
+        Serial.println("=== INICIANDO CAMPAINHA ===");
+        
+        // Campainha "blim-blom"
+        Serial.println("Tom 1: 800Hz");
+        playTone(800, 200);
+        
+        Serial.println("Tom 2: 600Hz");
+        playTone(600, 200);
+        
+        Serial.println("Tom 3: 800Hz");
+        playTone(800, 200);
+        
+        Serial.println("Tom 4: 600Hz (longo)");
+        playTone(600, 400);
+        
+        displayOnScreen("Campainha tocada!", 9, 0x00FF00);
+        displayOnScreen("Reiniciando em 3s...", 10, 0x888888);
+        
+        Serial.println("=== CAMPAINHA CONCLUÍDA ===");
+        
+        // Aguardar 3 segundos
+        delay(3000);
+        
+        // RESET COMPLETO
+        initialized = false;
+        equalizerFinished = false;
+        soundPlayed = false;
+        Serial.println("=== REINICIANDO EQUALIZADOR ===");
+    }
 }
 
 void demonstrateSDCard() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    initScreenOnce(); // Limpa tela apenas uma vez por modo
+    static bool contentDrawn = false;
+    static unsigned long lastUpdateSD = 0;
     
-    displayOnScreen("=== CARTAO SD ===", 1, 0x00FFFF);
-    displayOnScreen("Status SD:", 3, 0xFFFFFF);
+    // Limpa tela apenas uma vez
+    if (initScreenOnce()) {
+        contentDrawn = false;
+    }
+    
+    // Desenhar conteúdo estático apenas uma vez
+    if (!contentDrawn) {
+        displayOnScreen(" CARTAO SD ", 1, 0x00FFFF);
+        displayOnScreen("Status SD:", 3, 0xFFFFFF);
+        contentDrawn = true;
+    }
     
     if (sdCardAvailable) {
         displayOnScreen("CONECTADO", 4, 0x00FF00);
-        displayOnScreen("Funcoes basicas", 6, 0xFFFFFF);
-        displayOnScreen("de arquivo", 7, 0xFFFFFF);
-        displayOnScreen("disponiveis", 8, 0xFFFFFF);
+        
+        // Mostrar informações do SD Card
+        if (millis() - lastUpdateSD > 2000) {
+            lastUpdateSD = millis();
+            
+            // Testar operações básicas
+            static int testCount = 0;
+            String testFile = "/demo" + String(testCount) + ".txt";
+            String testData = "Teste " + String(testCount) + " - " + String(millis());
+            
+            displayOnScreen("Testando escrita...", 6, 0xFFFF00);
+            if (writeToSD(testFile, testData)) {
+                displayOnScreen("Escrita: OK", 7, 0x00FF00);
+                
+                displayOnScreen("Testando leitura...", 8, 0xFFFF00);
+                String readData = readFromSD(testFile);
+                if (readData == testData) {
+                    displayOnScreen("Leitura: OK", 9, 0x00FF00);
+                } else {
+                    displayOnScreen("Leitura: ERRO", 9, 0xFF0000);
+                }
+                
+                // Mostrar tamanho do arquivo
+                size_t fileSize = getSDFileSize(testFile);
+                displayOnScreen("Tam: " + String(fileSize) + " bytes", 10, 0x888888);
+                
+            } else {
+                displayOnScreen("Escrita: ERRO", 7, 0xFF0000);
+            }
+            
+            testCount++;
+            if (testCount > 99) testCount = 0; // Reset contador
+        }
+        
+        displayOnScreen("A: Criar arquivo", 12, 0x888888);
+        displayOnScreen("B: Listar arquivos", 13, 0x888888);
+        
     } else {
         displayOnScreen("DESCONECTADO", 4, 0xFF0000);
         displayOnScreen("Insira um cartao", 6, 0xFFFFFF);
         displayOnScreen("SD para usar", 7, 0xFFFFFF);
         displayOnScreen("funcoes de", 8, 0xFFFFFF);
         displayOnScreen("armazenamento", 9, 0xFFFFFF);
+        
+        displayOnScreen("Tentando reconectar...", 11, 0xFFFF00);
+        
+        // Tentar reconectar periodicamente
+        if (millis() - lastUpdateSD > 5000) {
+            lastUpdateSD = millis();
+            if (SD.begin()) {
+                sdCardAvailable = true;
+                Serial.println("SD Card reconectado!");
+            }
+        }
     }
-    
-    displayOnScreen("LittleFS:", 11, 0xFFFF00);
-    displayOnScreen(LittleFS.begin() ? "OK" : "ERRO", 12, LittleFS.begin() ? 0x00FF00 : 0xFF0000);
 }
 
 void demonstrateAll() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    initScreenOnce(); // Limpa tela apenas uma vez por modo
     
     static unsigned long lastUpdate = 0;
     static int subMode = 0;
@@ -832,7 +1155,7 @@ void demonstrateAll() {
         subMode = (subMode + 1) % 4;
     }
     
-    displayOnScreen("=== DEMO COMPLETA ===", 1, 0x00FFFF);
+    displayOnScreen(" DEMO COMPLETA ", 1, 0x00FFFF);
     
     readAllSensors();
     
@@ -851,7 +1174,7 @@ void demonstrateAll() {
             break;
         case 2:
             displayOnScreen("SISTEMA:", 3, 0xFFFF00);
-            displayOnScreen("WiFi: OFF", 4, 0x888888);
+            displayOnScreen("WiFi: " + wifiStatus, 4, wifiConnected ? 0x00FF00 : 0xFF8800);
             displayOnScreen("BT: OFF", 5, 0x888888);
             displayOnScreen("SD: " + String(sdCardAvailable ? "OK" : "NO"), 6, sdCardAvailable ? 0x00FF00 : 0xFF0000);
             break;
@@ -873,11 +1196,9 @@ void demonstrateAll() {
 }
 
 void demonstrateCamera() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    initScreenOnce(); // Limpa tela apenas uma vez por modo
     
-    displayOnScreen("=== CAMERA ===", 1, 0x00FFFF);
+    displayOnScreen(" CAMERA ", 1, 0x00FFFF);
     displayOnScreen("Funcionalidade", 3, 0xFFFFFF);
     displayOnScreen("de camera nao", 4, 0xFFFFFF);
     displayOnScreen("implementada", 5, 0xFFFFFF);
@@ -899,36 +1220,248 @@ void demonstrateCamera() {
 }
 
 void demonstrateWiFi() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    static bool contentDrawn = false;
+    static unsigned long lastUpdate = 0;
+    static unsigned long lastScan = 0;
+    static String lastDisplayedStatus = "";
+    static String lastDisplayedIP = "";
     
-    displayOnScreen("=== WiFi ===", 1, 0x00FFFF);
-    displayOnScreen("Conectividade", 3, 0xFFFFFF);
-    displayOnScreen("WiFi disponivel", 4, 0xFFFFFF);
-    displayOnScreen("mas desabilitada", 5, 0xFFFFFF);
-    displayOnScreen("nesta demo para", 6, 0xFFFFFF);
-    displayOnScreen("evitar conflitos", 7, 0xFFFFFF);
-    displayOnScreen("de inicializacao", 8, 0xFFFFFF);
+    // Limpa tela apenas uma vez
+    if (initScreenOnce()) {
+        contentDrawn = false;
+        lastDisplayedStatus = "";
+        lastDisplayedIP = "";
+    }
     
-    displayOnScreen("Capacidades:", 10, 0xFFFF00);
-    displayOnScreen("- Station Mode", 11, 0x888888);
-    displayOnScreen("- Access Point", 12, 0x888888);
-    displayOnScreen("- HTTP Server", 13, 0x888888);
+    // Desenhar conteúdo estático apenas uma vez
+    if (!contentDrawn) {
+        displayOnScreen(" WiFi STATUS ", 1, 0x00FFFF);
+        displayOnScreen("A: Reconectar", 12, 0x888888);
+        displayOnScreen("B: Scan redes", 13, 0x888888);
+        contentDrawn = true;
+    }
     
-    // Simular scan de redes com LEDs
-    static int wifiSim = 0;
-    wifiSim = (wifiSim + 1) % 3;
-    uint32_t colors[] = {0x000000, 0x0000FF, 0x00FFFF};
-    setAllLeds(colors[wifiSim]);
+    // Atualizar informações apenas se mudaram
+    if (lastDisplayedStatus != wifiStatus) {
+        displayOnScreen("Status: " + wifiStatus, 2, wifiConnected ? 0x00FF00 : 0xFF8800);
+        lastDisplayedStatus = wifiStatus;
+    }
+    
+    if (lastDisplayedIP != localIP) {
+        if (wifiConnected && localIP != "") {
+            displayOnScreen("IP: " + localIP, 3, 0x00FFFF);
+        } else {
+            displayOnScreen("IP: Desconectado", 3, 0xFF0000);
+        }
+        lastDisplayedIP = localIP;
+    }
+    
+    // Atualizar conteúdo dinâmico com controle de tempo
+    bool shouldUpdate = (millis() - lastUpdate > 2000);
+    if (shouldUpdate) {
+        lastUpdate = millis();
+        
+        if (wifiConnected && localIP != "") {
+            displayOnScreen("Rede: " + connectedSSID, 4, 0xFFFFFF);
+            
+            // Atualizar sinal
+            long rssi = WiFi.RSSI();
+            String signalText = "Sinal: " + String(rssi) + " dBm";
+            uint32_t signalColor = 0x00FF00;
+            
+            if (rssi < -70) signalColor = 0xFF0000;
+            else if (rssi < -60) signalColor = 0xFFFF00;
+            
+            displayOnScreen(signalText, 5, signalColor);
+            displayOnScreen("MAC: " + WiFi.macAddress(), 7, 0x888888);
+            
+            // LEDs simples baseados no sinal
+            if (rssi > -60) setAllLeds(0x00FF00);
+            else if (rssi > -70) setAllLeds(0xFFFF00);
+            else setAllLeds(0xFF0000);
+            
+        } else {
+            displayOnScreen("SSID: " + wifi_ssid, 4, 0x888888);
+            displayOnScreen("Tentativas: " + String(wifiRetryCount), 5, 0x888888);
+            
+            // Scan muito simples e espaçado
+            if (millis() - lastScan > 20000) {
+                lastScan = millis();
+                Serial.println("Fazendo scan WiFi simples...");
+                
+                int n = WiFi.scanNetworks();
+                if (n > 0) {
+                    String network1 = (n > 0) ? WiFi.SSID(0) : "Nenhuma";
+                    String network2 = (n > 1) ? WiFi.SSID(1) : "";
+                    
+                    displayOnScreen("Redes:", 7, 0xFFFF00);
+                    displayOnScreen(network1, 8, 0xFFFFFF);
+                    if (network2 != "") {
+                        displayOnScreen(network2, 9, 0xFFFFFF);
+                    }
+                }
+            }
+        }
+    }
+    
+    // LEDs piscam devagar quando desconectado
+    if (!wifiConnected) {
+        static unsigned long lastBlink = 0;
+        if (millis() - lastBlink > 1500) {
+            lastBlink = millis();
+            static bool ledState = false;
+            ledState = !ledState;
+            setAllLeds(ledState ? 0x0000FF : 0x000000);
+        }
+    }
+}
+
+//  FUNÇÕES WiFi 
+
+void initializeWiFi() {
+    Serial.println("Inicializando WiFi...");
+    
+    // Configurar modo WiFi
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(100);
+    
+    // Tentar conectar
+    connectToWiFi();
+}
+
+void connectToWiFi() {
+    Serial.println("Tentando conectar ao WiFi...");
+    Serial.println("SSID: " + wifi_ssid);
+    
+    wifiStatus = "Conectando...";
+    wifiRetryCount++;
+    
+    WiFi.begin(wifi_ssid.c_str(), wifi_password.c_str());
+    
+    // Aguardar conexão por até 10 segundos
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        delay(500);
+        Serial.print(".");
+        attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiConnected = true;
+        wifiStatus = "Conectado";
+        connectedSSID = WiFi.SSID();
+        localIP = WiFi.localIP().toString();
+        
+        Serial.println("");
+        Serial.println("WiFi conectado com sucesso!");
+        Serial.println("SSID: " + connectedSSID);
+        Serial.println("IP: " + localIP);
+        Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
+        
+        // Flash verde nos LEDs para indicar sucesso
+        for (int i = 0; i < 3; i++) {
+            setAllLeds(0x00FF00);
+            delay(200);
+            setAllLedsOff();
+            delay(200);
+        }
+    } else {
+        wifiConnected = false;
+        wifiStatus = "Falha na conexao";
+        connectedSSID = "";
+        localIP = "";
+        
+        Serial.println("");
+        Serial.println("Falha ao conectar WiFi");
+        Serial.println("Status: " + String(WiFi.status()));
+        
+        // Flash vermelho nos LEDs para indicar falha
+        for (int i = 0; i < 2; i++) {
+            setAllLeds(0xFF0000);
+            delay(300);
+            setAllLedsOff();
+            delay(300);
+        }
+    }
+}
+
+void checkWiFiConnection() {
+    if (WiFi.status() == WL_CONNECTED) {
+        if (!wifiConnected) {
+            // Reconectado
+            wifiConnected = true;
+            wifiStatus = "Reconectado";
+            connectedSSID = WiFi.SSID();
+            localIP = WiFi.localIP().toString();
+            Serial.println("WiFi reconectado!");
+        }
+    } else {
+        if (wifiConnected) {
+            // Desconectado
+            wifiConnected = false;
+            wifiStatus = "Desconectado";
+            Serial.println("WiFi desconectado!");
+            
+            // Tentar reconectar
+            connectToWiFi();
+        }
+    }
+}
+
+void scanWiFiNetworks() {
+    Serial.println("Fazendo scan das redes WiFi...");
+    wifiStatus = "Fazendo scan...";
+    
+    int n = WiFi.scanNetworks();
+    Serial.println("Scan concluído");
+    
+    if (n == 0) {
+        Serial.println("Nenhuma rede encontrada");
+        wifiStatus = "Nenhuma rede";
+    } else {
+        Serial.println(String(n) + " redes encontradas:");
+        for (int i = 0; i < n; ++i) {
+            Serial.printf("%d: %s (%d) %s\n", 
+                         i + 1, 
+                         WiFi.SSID(i).c_str(), 
+                         WiFi.RSSI(i),
+                         (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? " " : "*");
+        }
+        wifiStatus = String(n) + " redes encontradas";
+    }
+}
+
+String getWiFiStatusText() {
+    switch (WiFi.status()) {
+        case WL_CONNECTED: return "Conectado";
+        case WL_NO_SSID_AVAIL: return "SSID nao encontrado";
+        case WL_CONNECT_FAILED: return "Falha na conexao";
+        case WL_CONNECTION_LOST: return "Conexao perdida";
+        case WL_DISCONNECTED: return "Desconectado";
+        case WL_IDLE_STATUS: return "Idle";
+        default: return "Status desconhecido";
+    }
+}
+
+void showWiFiInfo() {
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println(" Informações WiFi ");
+        Serial.println("SSID: " + WiFi.SSID());
+        Serial.println("IP: " + WiFi.localIP().toString());
+        Serial.println("Gateway: " + WiFi.gatewayIP().toString());
+        Serial.println("Subnet: " + WiFi.subnetMask().toString());
+        Serial.println("DNS: " + WiFi.dnsIP().toString());
+        Serial.println("MAC: " + WiFi.macAddress());
+        Serial.println("RSSI: " + String(WiFi.RSSI()) + " dBm");
+        Serial.println("Canal: " + String(WiFi.channel()));
+    }
 }
 
 void demonstrateBluetooth() {
-    // Limpar tela completamente
-    k10.canvas->canvasClear();
-    k10.setScreenBackground(0x000000);
+    initScreenOnce(); // Limpa tela apenas uma vez por modo
     
-    displayOnScreen("=== BLUETOOTH ===", 1, 0x00FFFF);
+    displayOnScreen(" BLUETOOTH ", 1, 0x00FFFF);
     displayOnScreen("Conectividade", 3, 0xFFFFFF);
     displayOnScreen("Bluetooth", 4, 0xFFFFFF);
     displayOnScreen("disponivel mas", 5, 0xFFFFFF);
@@ -951,4 +1484,187 @@ void demonstrateBluetooth() {
             delay(100);
         }
     }
+}
+
+//  FUNÇÕES NATIVAS PARA SD CARD 
+
+bool writeToSD(String filename, String data) {
+    if (!sdCardAvailable) {
+        Serial.println("SD Card não disponível para escrita");
+        return false;
+    }
+    
+    File file = SD.open(filename, FILE_WRITE);
+    if (!file) {
+        Serial.println("Erro ao abrir arquivo para escrita: " + filename);
+        return false;
+    }
+    
+    size_t written = file.print(data);
+    file.close();
+    
+    if (written == data.length()) {
+        Serial.println("Arquivo escrito com sucesso: " + filename + " (" + String(written) + " bytes)");
+        return true;
+    } else {
+        Serial.println("Erro na escrita do arquivo: " + filename);
+        return false;
+    }
+}
+
+String readFromSD(String filename) {
+    if (!sdCardAvailable) {
+        Serial.println("SD Card não disponível para leitura");
+        return "";
+    }
+    
+    File file = SD.open(filename, FILE_READ);
+    if (!file) {
+        Serial.println("Erro ao abrir arquivo para leitura: " + filename);
+        return "";
+    }
+    
+    String content = "";
+    while (file.available()) {
+        content += char(file.read());
+    }
+    file.close();
+    
+    Serial.println("Arquivo lido com sucesso: " + filename + " (" + String(content.length()) + " bytes)");
+    return content;
+}
+
+bool appendToSD(String filename, String data) {
+    if (!sdCardAvailable) {
+        Serial.println("SD Card não disponível para append");
+        return false;
+    }
+    
+    File file = SD.open(filename, FILE_APPEND);
+    if (!file) {
+        Serial.println("Erro ao abrir arquivo para append: " + filename);
+        return false;
+    }
+    
+    size_t written = file.print(data);
+    file.close();
+    
+    if (written == data.length()) {
+        Serial.println("Dados anexados com sucesso: " + filename + " (+" + String(written) + " bytes)");
+        return true;
+    } else {
+        Serial.println("Erro ao anexar dados ao arquivo: " + filename);
+        return false;
+    }
+}
+
+bool deleteFromSD(String filename) {
+    if (!sdCardAvailable) {
+        Serial.println("SD Card não disponível para exclusão");
+        return false;
+    }
+    
+    if (SD.remove(filename)) {
+        Serial.println("Arquivo deletado com sucesso: " + filename);
+        return true;
+    } else {
+        Serial.println("Erro ao deletar arquivo: " + filename);
+        return false;
+    }
+}
+
+void listSDFiles() {
+    if (!sdCardAvailable) {
+        Serial.println("SD Card não disponível para listagem");
+        return;
+    }
+    
+    Serial.println(" Listando arquivos no SD Card ");
+    File root = SD.open("/");
+    if (!root) {
+        Serial.println("Erro ao abrir diretório raiz");
+        return;
+    }
+    
+    int fileCount = 0;
+    File file = root.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            Serial.print("DIR: ");
+        } else {
+            Serial.print("FILE: ");
+        }
+        Serial.print(file.name());
+        if (!file.isDirectory()) {
+            Serial.print(" (");
+            Serial.print(file.size());
+            Serial.print(" bytes)");
+        }
+        Serial.println();
+        
+        fileCount++;
+        file = root.openNextFile();
+    }
+    root.close();
+    
+    Serial.println("Total de itens encontrados: " + String(fileCount));
+}
+
+bool sdFileExists(String filename) {
+    if (!sdCardAvailable) {
+        return false;
+    }
+    
+    File file = SD.open(filename, FILE_READ);
+    if (file) {
+        file.close();
+        return true;
+    }
+    return false;
+}
+
+size_t getSDFileSize(String filename) {
+    if (!sdCardAvailable) {
+        return 0;
+    }
+    
+    File file = SD.open(filename, FILE_READ);
+    if (!file) {
+        return 0;
+    }
+    
+    size_t size = file.size();
+    file.close();
+    return size;
+}
+
+//  FUNÇÕES DE ÁUDIO 
+
+void playBeep() {
+    playTone(1000, 200);
+}
+
+void playTone(int frequency, int duration) {
+    // Melhorado: Simular som com LEDs piscando na frequência
+    Serial.println("Tocando frequencia: " + String(frequency) + "Hz por " + String(duration) + "ms");
+    
+    unsigned long startTime = millis();
+    unsigned long blinkInterval = 1000000 / (frequency * 2); // Microsegundos para cada piscada
+    bool ledState = false;
+    
+    while (millis() - startTime < duration) {
+        static unsigned long lastBlink = 0;
+        if (micros() - lastBlink > blinkInterval) {
+            ledState = !ledState;
+            if (ledState) {
+                setAllLeds(0xFFFFFF); // Branco para indicar tom
+            } else {
+                setAllLedsOff();
+            }
+            lastBlink = micros();
+        }
+    }
+    
+    setAllLedsOff();
+    delay(50); // Pausa entre tons
 }

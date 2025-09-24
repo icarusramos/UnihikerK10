@@ -3,3 +3,16 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Arquivos de configuração sensíveis - PROTEGE DADOS PESSOAIS
+.env
+*.env
+
+# Arquivos temporários
+*.tmp
+*.bak
+*~
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
